@@ -86,18 +86,26 @@ func (s *SecureConnection) Read(p []byte) (int, error) {
 
 		actualPacketEnd := DeterminePacketSize(s.Buffer.Bytes())
 		if actualPacketEnd == 0 {
-			// log.Printf("packet too small?")
 			break
-			return 0, io.EOF
 		}
 
+		// our buffer contains a partial packet
 		if int(actualPacketEnd) > len(s.Buffer.Bytes()) {
-			// we must have half a packet
-			// log.Print("partial packet detected")
 			break
 		}
 
-		secureMessage := ConstructSecureMessage(s.Buffer.Bytes()[:actualPacketEnd])
+		encryptedBytes := make([]byte, actualPacketEnd)
+		n, err := s.Buffer.Read(encryptedBytes)
+		if err != nil && err != io.EOF {
+			log.Printf("failed to get encrypted bytes from buffer?")
+			return 0, errors.New("failed to get encrypted bytes from buffer")
+		}
+		if n != int(actualPacketEnd) {
+			log.Printf("failed to get right number of encrypted bytes from buffer")
+			return 0, errors.New("failed to get right number of encrypted bytes from buffer")
+
+		}
+		secureMessage := ConstructSecureMessage(encryptedBytes)
 		// log.Printf("Secure message from wire bytes: \n  nonce: %v\n  msg: %v\n  size: %d\n", secureMessage.Nonce, secureMessage.Msg, secureMessage.Size)
 		decryptedMessage, ok := box.OpenAfterPrecomputation(nil, secureMessage.Msg, &secureMessage.Nonce, s.SharedKey)
 
@@ -106,13 +114,6 @@ func (s *SecureConnection) Read(p []byte) (int, error) {
 		}
 
 		outputBytes = append(outputBytes, decryptedMessage...)
-
-		// log.Printf("OUT now: %d bytes", len(outputBytes))
-		// copy(p, decryptedMessage)
-
-		// trim what we used off the buffer
-		newBuffer := s.Buffer.Bytes()[actualPacketEnd:]
-		s.Buffer = bytes.NewBuffer(newBuffer)
 
 		if eof && s.Buffer.Len() == 0 {
 			log.Printf("returning the final packet")
