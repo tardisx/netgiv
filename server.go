@@ -1,9 +1,14 @@
 package main
 
 import (
+	"bytes"
+	"encoding/gob"
 	"fmt"
+	"io"
+	"log"
 	"net"
 	"os"
+	"time"
 
 	"github.com/tardisx/netgiv/secure"
 )
@@ -35,17 +40,46 @@ func (s *Server) Run() {
 
 func handleConnection(conn *net.TCPConn) {
 	defer conn.Close()
+
+	conn.SetDeadline(time.Now().Add(time.Second))
+
 	sharedKey := secure.Handshake(conn)
-	secureConnection := secure.SecureConnection{Conn: conn, SharedKey: sharedKey}
+	secureConnection := secure.SecureConnection{Conn: conn, SharedKey: sharedKey, Buffer: &bytes.Buffer{}}
 
+	gob.Register(secure.PacketStart{})
+	gob.Register(secure.PacketSendDataStart{})
+
+	dec := gob.NewDecoder(&secureConnection)
+
+	// At this point we are in
 	for {
-		msg := make([]byte, 1024)
-		_, err := secureConnection.Read(msg)
 
+		p1 := secure.PacketStart{}
+
+		log.Print("trying to decode something from wire")
+		err := dec.Decode(&p1)
+		if err == io.EOF {
+			log.Printf("connection has been closed")
+			return
+		}
 		if err != nil {
-			break
+			panic(err)
 		}
 
-		secureConnection.Write(msg)
+		log.Printf("Decoded packet:\n%#v", p1)
+
+		p2 := secure.PacketSendDataStart{}
+
+		err = dec.Decode(&p2)
+		if err == io.EOF {
+			log.Printf("connection has been closed")
+			return
+		}
+		if err != nil {
+			panic(err)
+		}
+
+		log.Printf("Decoded packet:\n%#v", p2)
+
 	}
 }

@@ -1,11 +1,11 @@
 package main
 
 import (
-	"bufio"
+	"encoding/gob"
 	"errors"
 	"fmt"
+	"log"
 	"net"
-	"os"
 
 	"github.com/tardisx/netgiv/secure"
 )
@@ -20,7 +20,7 @@ func (c *Client) Connect() error {
 
 	conn, err := net.DialTCP("tcp", nil, serverAddress)
 	if err != nil {
-		return errors.New("Problem connecting to server, is it running?\n")
+		return errors.New("problem connecting to server, is it running?\n")
 	}
 	defer conn.Close()
 
@@ -29,26 +29,46 @@ func (c *Client) Connect() error {
 	sharedKey := secure.Handshake(conn)
 	secureConnection := secure.SecureConnection{Conn: conn, SharedKey: sharedKey}
 
-	reader := bufio.NewReader(os.Stdin)
+	// reader := bufio.NewReader(os.Stdin)
+	enc := gob.NewEncoder(&secureConnection)
 
 	for {
-		fmt.Print("> ")
-		// Read up to the newline character
-		msg, _ := reader.ReadBytes(0xA)
-		// Kill the newline char
-		msg = msg[:len(msg)-1]
 
-		_, err := secureConnection.Write(msg)
-
-		response := make([]byte, 1024)
-
-		_, err = secureConnection.Read(response)
-		if err != nil {
-			fmt.Print("Connection to the server was closed.\n")
-			break
+		msg := secure.PacketStart{
+			OperationType:   secure.OperationTypeSend,
+			ClientName:      "Justin Hawkins",
+			ProtocolVersion: "v1.0",
+			AuthToken:       "abc123",
 		}
 
-		fmt.Printf("%s\n", response)
+		// gob.Register(secure.PacketSendStart{})
+		err := enc.Encode(msg)
+		if err != nil {
+			panic(err)
+		}
+
+		data := secure.PacketSendDataStart{
+			Filename:  "foobar",
+			TotalSize: 3,
+			Data:      []byte{0x20, 0x21, 0x22},
+		}
+		err = enc.Encode(data)
+		if err != nil {
+			panic(err)
+		}
+		log.Print("done that")
+		conn.Close()
+
+		break
+		// response := make([]byte, 1024)
+
+		// _, err = secureConnection.Read(response)
+		// if err != nil {
+		// 	fmt.Print("Connection to the server was closed.\n")
+		// 	break
+		// }
+
+		// fmt.Printf("%s\n", response)
 	}
 
 	return nil

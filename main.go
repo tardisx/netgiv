@@ -3,9 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 )
 
 func main() {
+	log.SetFlags(log.Lshortfile)
 	port := flag.Int("p", 9000, "Port to run server/client on.")
 	isServer := flag.Bool("s", false, "Set if running the server.")
 	flag.Parse()
