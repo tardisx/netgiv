@@ -29,12 +29,10 @@ func (s *SecureMessage) toByteArray() []byte {
 func DeterminePacketSize(data []byte) uint16 {
 	// first 24 bytes are the nonce, then the size
 	if len(data) < 26 {
-		log.Printf("packet is too small to be complete - %d bytes", len(data))
 		return 0
 	}
 	size := binary.BigEndian.Uint16(data[24:26])
 	size += 26 // add the length header and the nonce
-	log.Printf("size of packet inside the %d bytes is %d bytes", len(data), size)
 	return size
 }
 
@@ -57,11 +55,13 @@ type SecureConnection struct {
 }
 
 func (s *SecureConnection) Read(p []byte) (int, error) {
-	message := make([]byte, 20408)
+	message := make([]byte, 2048)
 	// Read the message from the buffer
 	eof := false
 
-	log.Printf("READ: Start, buffer contains %d bytes", s.Buffer.Len())
+	outputBytes := make([]byte, 0)
+
+	// log.Printf("READ: start, p %d/%d, buffer contains currently contains %d bytes", len(p), cap(p), s.Buffer.Len())
 
 	n, err := s.Conn.Read(message)
 
@@ -82,51 +82,71 @@ func (s *SecureConnection) Read(p []byte) (int, error) {
 	s.Buffer.Write(message[:n])
 	// log.Printf("read: appended them to the buffer which is now %d bytes", len(s.Buffer.Bytes()))
 
-	actualPacketEnd := DeterminePacketSize(s.Buffer.Bytes())
-	if actualPacketEnd == 0 {
-		log.Printf("packet too small?")
-		// 		panic("small")
-		return 0, io.EOF
+	for {
+
+		actualPacketEnd := DeterminePacketSize(s.Buffer.Bytes())
+		if actualPacketEnd == 0 {
+			// log.Printf("packet too small?")
+			break
+			return 0, io.EOF
+		}
+
+		if int(actualPacketEnd) > len(s.Buffer.Bytes()) {
+			// we must have half a packet
+			// log.Print("partial packet detected")
+			break
+		}
+
+		secureMessage := ConstructSecureMessage(s.Buffer.Bytes()[:actualPacketEnd])
+		// log.Printf("Secure message from wire bytes: \n  nonce: %v\n  msg: %v\n  size: %d\n", secureMessage.Nonce, secureMessage.Msg, secureMessage.Size)
+		decryptedMessage, ok := box.OpenAfterPrecomputation(nil, secureMessage.Msg, &secureMessage.Nonce, s.SharedKey)
+
+		if !ok {
+			return 0, errors.New("problem decrypting the message")
+		}
+
+		outputBytes = append(outputBytes, decryptedMessage...)
+
+		// log.Printf("OUT now: %d bytes", len(outputBytes))
+		// copy(p, decryptedMessage)
+
+		// trim what we used off the buffer
+		newBuffer := s.Buffer.Bytes()[actualPacketEnd:]
+		s.Buffer = bytes.NewBuffer(newBuffer)
+
+		if eof && s.Buffer.Len() == 0 {
+			log.Printf("returning the final packet")
+			break
+		}
+
 	}
 
-	secureMessage := ConstructSecureMessage(s.Buffer.Bytes()[:actualPacketEnd])
-	// log.Printf("Secure message from wire bytes: \n  nonce: %v\n  msg: %v\n  size: %d\n", secureMessage.Nonce, secureMessage.Msg, secureMessage.Size)
-	decryptedMessage, ok := box.OpenAfterPrecomputation(nil, secureMessage.Msg, &secureMessage.Nonce, s.SharedKey)
-
-	if !ok {
-		return 0, errors.New("problem decrypting the message")
+	err = io.EOF
+	if !eof {
+		err = nil
 	}
 
-	copy(p, decryptedMessage)
+	copy(p, outputBytes)
 
-	// trim what we used off the buffer
-	newBuffer := s.Buffer.Bytes()[actualPacketEnd:]
-	s.Buffer = bytes.NewBuffer(newBuffer)
+	// log.Printf("returning %d decrypted bytes with err: %w", len(outputBytes), err)
+	// log.Printf("READ: end, p %d/%d, buffer contains currently contains %d bytes", len(p), cap(p), s.Buffer.Len())
 
-	if eof && s.Buffer.Len() == 0 {
-		log.Printf("returning the final packet")
-		return len(decryptedMessage), io.EOF
-	}
-
-	log.Printf("successfully read %d bytes", len(decryptedMessage))
-	return len(decryptedMessage), nil
+	return len(outputBytes), err
 }
 
 func (s *SecureConnection) Write(p []byte) (int, error) {
 	// func (s *SecureConnection) Write(o encoding.BinaryMarshaler) (int, error) {
 	var nonce [24]byte
 
-	log.Printf("clear bytes: %v", p)
-
 	// Create a new nonce for each message sent
 	rand.Read(nonce[:])
-	log.Printf("before encryption it is %d bytes", len(p))
+	// log.Printf("before encryption it is %d bytes", len(p))
 	encryptedMessage := box.SealAfterPrecomputation(nil, p, &nonce, s.SharedKey)
 	sm := SecureMessage{Msg: encryptedMessage, Nonce: nonce}
 
 	// Write it to the connection
 	wireBytes := sm.toByteArray()
-	log.Printf("putting %d bytes on the wire\n  nonce: %v\n  bytes: %v", len(wireBytes), nonce, wireBytes)
+	// log.Printf("putting %d bytes on the wire\n  nonce: %v\n  bytes: %v", len(wireBytes), nonce, wireBytes)
 	return s.Conn.Write(wireBytes)
 }
 
@@ -167,7 +187,6 @@ type PacketStart struct {
 type PacketSendDataStart struct {
 	Filename  string
 	TotalSize uint32
-	Data      []byte
 }
 
 type PacketSendDataNext struct {

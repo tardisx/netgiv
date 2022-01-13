@@ -1,21 +1,26 @@
 package main
 
 import (
+	"bufio"
 	"encoding/gob"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
+	"os"
 
 	"github.com/tardisx/netgiv/secure"
 )
 
 type Client struct {
-	port int
+	address string
+	port    int
 }
 
 func (c *Client) Connect() error {
-	address := fmt.Sprintf("127.0.0.1:%d", c.port)
+	address := fmt.Sprintf("%s:%d", c.address, c.port)
+
 	serverAddress, _ := net.ResolveTCPAddr("tcp", address)
 
 	conn, err := net.DialTCP("tcp", nil, serverAddress)
@@ -50,13 +55,45 @@ func (c *Client) Connect() error {
 		data := secure.PacketSendDataStart{
 			Filename:  "foobar",
 			TotalSize: 3,
-			Data:      []byte{0x20, 0x21, 0x22},
 		}
 		err = enc.Encode(data)
 		if err != nil {
 			panic(err)
 		}
 		log.Print("done that")
+
+		nBytes, nChunks := int64(0), int64(0)
+		reader := bufio.NewReader(os.Stdin)
+		buf := make([]byte, 0, 1024)
+
+		for {
+			n, err := reader.Read(buf[:cap(buf)])
+			buf = buf[:n]
+			if n == 0 {
+				if err == nil {
+					continue
+				}
+				if err == io.EOF {
+					break
+				}
+				log.Fatal(err)
+			}
+			nChunks++
+			nBytes += int64(len(buf))
+			// process buf
+
+			send := secure.PacketSendDataNext{
+				Size: 5000,
+				Data: buf,
+			}
+			enc.Encode(send)
+			// time.Sleep(time.Second)
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+		log.Println("Bytes:", nBytes, "Chunks:", nChunks)
+
 		conn.Close()
 
 		break
