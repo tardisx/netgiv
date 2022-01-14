@@ -10,7 +10,6 @@ import (
 	"net"
 	"os"
 
-	"github.com/h2non/filetype"
 	"github.com/tardisx/netgiv/secure"
 )
 
@@ -53,11 +52,18 @@ func (c *Client) Connect() error {
 			panic(err)
 		}
 
+		data := secure.PacketSendDataStart{
+			Filename:  "",
+			TotalSize: 0,
+		}
+		err = enc.Encode(data)
+		if err != nil {
+			panic(err)
+		}
+
 		nBytes, nChunks := int64(0), int64(0)
 		reader := bufio.NewReader(os.Stdin)
 		buf := make([]byte, 0, 1024)
-
-		startSent := false
 
 		for {
 			n, err := reader.Read(buf[:cap(buf)])
@@ -75,21 +81,6 @@ func (c *Client) Connect() error {
 			}
 			nChunks++
 			nBytes += int64(len(buf))
-
-			if !startSent {
-				kind, _ := filetype.Match(buf)
-				data := secure.PacketSendDataStart{
-					Filename:  "foobar",
-					TotalSize: 3,
-					Kind:      kind.MIME.Value,
-				}
-				err = enc.Encode(data)
-				if err != nil {
-					panic(err)
-				}
-				log.Print("done that")
-				startSent = true
-			}
 
 			send := secure.PacketSendDataNext{
 				Size: 5000,

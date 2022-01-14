@@ -10,11 +10,21 @@ import (
 	"os"
 	"time"
 
+	"github.com/h2non/filetype"
+
 	"github.com/tardisx/netgiv/secure"
 )
 
 type Server struct {
 	port int
+}
+
+// An NGF is a Netgiv File
+type NGF struct {
+	StorePath string
+	Filename  string // could be empty string if we were not supplied with one
+	Kind      string //
+	Size      uint64 // file size
 }
 
 func (s *Server) Run() {
@@ -78,12 +88,22 @@ func handleConnection(conn *net.TCPConn) {
 		}
 		log.Printf("send start looks like: %v", sendStart)
 		file, err := os.CreateTemp("", "netgiv_")
+		defer file.Close()
+
+		ngf := NGF{
+			StorePath: file.Name(),
+			Filename:  sendStart.Filename,
+			Kind:      "",
+			Size:      0,
+		}
+
 		if err != nil {
 			log.Printf("got error with temp file: %w", err)
 			return
 		}
 		log.Printf("writing data to file: %s", file.Name())
 		sendData := secure.PacketSendDataNext{}
+		determinedKind := false
 		for {
 			conn.SetDeadline(time.Now().Add(time.Second * 5))
 			err = dec.Decode(&sendData)
@@ -95,8 +115,26 @@ func handleConnection(conn *net.TCPConn) {
 				log.Printf("error decoding data next: %s", err)
 				return
 			}
+
+			// filetype.Match needs a few hundred bytes - I guess there is a chance
+			// we don't have enough in the very first packet? This might need rework.
+			if !determinedKind {
+				kind, _ := filetype.Match(sendData.Data)
+				ngf.Kind = kind.MIME.Value
+				determinedKind = true
+			}
+
 			file.Write(sendData.Data)
 		}
+		info, err := file.Stat()
+		if err != nil {
+			log.Printf("couldn't stat file %s", err)
+			return
+		}
+		ngf.Size = uint64(info.Size())
+		log.Printf("received a %#v", ngf)
+		file.Close()
+
 		return
 	} else {
 		log.Printf("bad operation")

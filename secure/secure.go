@@ -188,7 +188,6 @@ type PacketStart struct {
 type PacketSendDataStart struct {
 	Filename  string
 	TotalSize uint32
-	Kind      string
 }
 
 type PacketSendDataNext struct {
