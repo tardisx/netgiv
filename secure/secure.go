@@ -72,13 +72,19 @@ func (s *SecureConnection) Read(p []byte) (int, error) {
 	if err == io.EOF {
 		eof = true
 	}
+	// if n == 0 && bytes.Buffer.{
+	// 	return 0, io.EOF
+	// }
 
 	// log.Printf("read: got %d bytes on the wire, error is %v", n, err)
 	// log.Printf("looks like %v", message[:n])
-	if eof {
-		log.Printf("eof is true - this is our final read!")
-	}
+	// if eof {
+	// 	log.Printf("eof is true - this is our final read!")
+	// }
+	// log.Printf("writing n=%d", n)
+	// log.Printf("writing  buffersize=%v", s.Buffer)
 
+	// log.Printf("writing n=%d buffersize=%d this: %v", n, s.Buffer.Len(), s.Buffer.Bytes()[:n])
 	s.Buffer.Write(message[:n])
 	// log.Printf("read: appended them to the buffer which is now %d bytes", len(s.Buffer.Bytes()))
 
@@ -154,7 +160,6 @@ func (s *SecureConnection) Write(p []byte) (int, error) {
 func Handshake(conn *net.TCPConn) *[32]byte {
 	var peerKey, sharedKey [32]byte
 
-	log.Print("starting handshake")
 	publicKey, privateKey, _ := box.GenerateKey(rand.Reader)
 
 	conn.Write(publicKey[:])
@@ -165,8 +170,6 @@ func Handshake(conn *net.TCPConn) *[32]byte {
 
 	box.Precompute(&sharedKey, &peerKey, privateKey)
 
-	log.Printf("ending handshake, sk: %v", sharedKey)
-
 	return &sharedKey
 }
 
@@ -174,6 +177,7 @@ type OperationTypeEnum byte
 
 const (
 	OperationTypeSend OperationTypeEnum = iota
+	OperationTypeList
 )
 
 // PacketStart is sent from the client to the server at the beginning
@@ -188,6 +192,13 @@ type PacketStart struct {
 type PacketSendDataStart struct {
 	Filename  string
 	TotalSize uint32
+}
+
+type PacketListData struct {
+	Id       uint32
+	Filename string
+	FileSize uint32
+	Kind     string
 }
 
 type PacketSendDataNext struct {

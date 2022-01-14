@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"sync/atomic"
 	"time"
 
 	"github.com/h2non/filetype"
@@ -21,11 +22,15 @@ type Server struct {
 
 // An NGF is a Netgiv File
 type NGF struct {
+	Id        uint32
 	StorePath string
 	Filename  string // could be empty string if we were not supplied with one
 	Kind      string //
 	Size      uint64 // file size
 }
+
+var ngfs []NGF
+var globalId uint32
 
 func (s *Server) Run() {
 	address := fmt.Sprintf(":%d", s.port)
@@ -36,6 +41,8 @@ func (s *Server) Run() {
 		fmt.Print(err)
 		os.Exit(2)
 	}
+
+	ngfs = make([]NGF, 0)
 
 	for {
 		conn, err := listener.AcceptTCP()
@@ -60,34 +67,37 @@ func handleConnection(conn *net.TCPConn) {
 	gob.Register(secure.PacketSendDataStart{})
 
 	dec := gob.NewDecoder(&secureConnection)
+	enc := gob.NewEncoder(&secureConnection)
 
 	// Get the start packet
 	start := secure.PacketStart{}
 
 	err := dec.Decode(&start)
 	if err == io.EOF {
-		log.Printf("connection has been closed after start packet")
+		log.Printf("connection has been closed prematurely")
 		return
 	}
 	if err != nil {
-		log.Printf("some error with start packet: %w", err)
+		log.Printf("error while expecting PacketStart: %v", err)
 		return
 	}
 
-	log.Printf("Decoded packet:\n%#v", start)
 	conn.SetDeadline(time.Now().Add(time.Second * 5))
 
 	if start.OperationType == secure.OperationTypeSend {
-		log.Printf("client wants to send us something, expecting a send start")
+		log.Printf("file incoming")
+
 		sendStart := secure.PacketSendDataStart{}
 
 		err = dec.Decode(&sendStart)
 		if err != nil {
-			log.Printf("error at send data start: %w", err)
+			log.Printf("error - expecting PacketSendDataStart: %v", err)
 			return
 		}
-		log.Printf("send start looks like: %v", sendStart)
 		file, err := os.CreateTemp("", "netgiv_")
+		if err != nil {
+			log.Fatalf("can't open tempfile: %v", err)
+		}
 		defer file.Close()
 
 		ngf := NGF{
@@ -95,24 +105,23 @@ func handleConnection(conn *net.TCPConn) {
 			Filename:  sendStart.Filename,
 			Kind:      "",
 			Size:      0,
+			Id:        atomic.AddUint32(&globalId, 1),
 		}
 
 		if err != nil {
 			log.Printf("got error with temp file: %w", err)
 			return
 		}
-		log.Printf("writing data to file: %s", file.Name())
 		sendData := secure.PacketSendDataNext{}
 		determinedKind := false
 		for {
 			conn.SetDeadline(time.Now().Add(time.Second * 5))
 			err = dec.Decode(&sendData)
 			if err == io.EOF {
-				log.Printf("WE ARE DONE writing to: %s", file.Name())
 				break
 			}
 			if err != nil {
-				log.Printf("error decoding data next: %s", err)
+				log.Printf("error while expecting PacketSendDataNext: %s", err)
 				return
 			}
 
@@ -132,10 +141,27 @@ func handleConnection(conn *net.TCPConn) {
 			return
 		}
 		ngf.Size = uint64(info.Size())
-		log.Printf("received a %#v", ngf)
 		file.Close()
 
+		ngfs = append(ngfs, ngf)
+		log.Printf("done receiving file")
+
 		return
+	} else if start.OperationType == secure.OperationTypeList {
+		log.Printf("client requesting file list")
+
+		for _, ngf := range ngfs {
+			p := secure.PacketListData{}
+			p.FileSize = uint32(ngf.Size)
+			p.Kind = ngf.Kind
+			p.Id = ngf.Id
+			p.Filename = ngf.Filename
+			enc.Encode(p)
+		}
+		log.Printf("done sending list, closing connection")
+
+		return
+
 	} else {
 		log.Printf("bad operation")
 		return

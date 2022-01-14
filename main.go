@@ -11,6 +11,8 @@ func main() {
 	port := flag.Int("p", 9000, "Port to run server/client on.")
 	addr := flag.String("a", "61.245.149.58", "address to connect to.")
 	isServer := flag.Bool("s", false, "Set if running the server.")
+	isList := flag.Bool("l", false, "Set if requesting a list")
+
 	flag.Parse()
 
 	if *isServer {
@@ -19,7 +21,7 @@ func main() {
 		s.Run()
 	} else {
 		fmt.Printf("Client running on %d\n", *port)
-		c := Client{port: *port, address: *addr}
+		c := Client{port: *port, address: *addr, list: *isList}
 		err := c.Connect()
 		if err != nil {
 			fmt.Print(err)

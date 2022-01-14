@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/gob"
 	"errors"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 type Client struct {
 	address string
 	port    int
+	list    bool
 }
 
 func (c *Client) Connect() error {
@@ -32,12 +34,41 @@ func (c *Client) Connect() error {
 	fmt.Printf("Connection on %s\n", address)
 
 	sharedKey := secure.Handshake(conn)
-	secureConnection := secure.SecureConnection{Conn: conn, SharedKey: sharedKey}
+	secureConnection := secure.SecureConnection{Conn: conn, SharedKey: sharedKey, Buffer: &bytes.Buffer{}}
 
-	// reader := bufio.NewReader(os.Stdin)
 	enc := gob.NewEncoder(&secureConnection)
+	dec := gob.NewDecoder(&secureConnection)
 
-	for {
+	if c.list {
+		log.Printf("requesting file list")
+		// list mode
+		msg := secure.PacketStart{
+			OperationType:   secure.OperationTypeList,
+			ClientName:      "Justin Hawkins",
+			ProtocolVersion: "v1.0",
+			AuthToken:       "abc123",
+		}
+		err := enc.Encode(msg)
+		if err != nil {
+			panic(err)
+		}
+		// now we expect to get stuff back until we don't
+		for {
+			listPacket := secure.PacketListData{}
+			err := dec.Decode(&listPacket)
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				panic(err)
+			}
+			log.Printf("%d: %s (%d bytes)", listPacket.Id, listPacket.Kind, listPacket.FileSize)
+		}
+		conn.Close()
+		log.Printf("done listing")
+
+	} else {
+		// must be send mode
 
 		msg := secure.PacketStart{
 			OperationType:   secure.OperationTypeSend,
@@ -96,8 +127,7 @@ func (c *Client) Connect() error {
 
 		conn.Close()
 
-		break
 	}
-
 	return nil
+
 }
