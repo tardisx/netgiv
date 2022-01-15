@@ -147,6 +147,65 @@ func handleConnection(conn *net.TCPConn) {
 		log.Printf("done receiving file")
 
 		return
+	} else if start.OperationType == secure.OperationTypeReceive {
+		log.Printf("client requesting file receive")
+		// wait for them to send the request
+		req := secure.PacketReceiveDataStartRequest{}
+		err := dec.Decode(&req)
+		if err != nil {
+			log.Printf("error expecting PacketReceiveDataStartRequest: %v", err)
+			return
+		}
+
+		log.Printf("The asked for %v", req)
+		res := secure.PacketReceiveDataStartResponse{
+			Status:    secure.ReceiveDataStartResponseOK,
+			Filename:  "abcdef",
+			Kind:      "",
+			TotalSize: 12340,
+		}
+		err = enc.Encode(res)
+		if err != nil {
+			log.Printf("error sending PacketReceiveDataStartResponse: %v", err)
+			return
+		}
+
+		log.Printf("%#v", ngfs)
+
+		// now just start sending the file in batches
+		buf := make([]byte, 2048)
+		filename := ngfs[0].StorePath
+		log.Printf("opening %s", filename)
+		f, err := os.Open(filename)
+		for {
+			n, err := f.Read(buf)
+			eof := false
+
+			if err != nil && err != io.EOF {
+				log.Printf("error reading data: %v", err)
+				break
+			}
+			if err == io.EOF {
+				eof = true
+			}
+
+			chunk := secure.PacketReceiveDataNext{
+				Size: uint16(n),
+				Data: buf[:n],
+				Last: eof,
+			}
+			err = enc.Encode(chunk)
+			if err != nil {
+				log.Printf("error sending chunk: %v", err)
+			}
+
+			if eof {
+				break
+			}
+		}
+		log.Printf("sending done")
+		return
+
 	} else if start.OperationType == secure.OperationTypeList {
 		log.Printf("client requesting file list")
 

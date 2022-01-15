@@ -178,6 +178,7 @@ type OperationTypeEnum byte
 const (
 	OperationTypeSend OperationTypeEnum = iota
 	OperationTypeList
+	OperationTypeReceive
 )
 
 // PacketStart is sent from the client to the server at the beginning
@@ -193,15 +194,43 @@ type PacketSendDataStart struct {
 	Filename  string
 	TotalSize uint32
 }
+type PacketSendDataNext struct {
+	Size uint16
+	Data []byte
+}
+
+// PacketReceiveDataStart is sent from the server to the client when
+// the client asks for a file to be sent to them.
+type PacketReceiveDataStartRequest struct {
+	Id uint32
+}
+
+type PacketReceiveDataStartResponseEnum byte
+
+const (
+	// File transfer can begin
+	ReceiveDataStartResponseOK PacketReceiveDataStartResponseEnum = iota
+	// No such file by index
+	ReceiveDataStartResponseNotFound
+)
+
+// PacketReceiveDataStartResponse is the response to the above packet.
+type PacketReceiveDataStartResponse struct {
+	Status    PacketReceiveDataStartResponseEnum
+	Filename  string
+	Kind      string
+	TotalSize uint32
+}
+
+type PacketReceiveDataNext struct {
+	Size uint16
+	Data []byte
+	Last bool
+}
 
 type PacketListData struct {
 	Id       uint32
 	Filename string
 	FileSize uint32
 	Kind     string
-}
-
-type PacketSendDataNext struct {
-	Size uint16
-	Data []byte
 }

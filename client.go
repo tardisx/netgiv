@@ -18,6 +18,7 @@ type Client struct {
 	address string
 	port    int
 	list    bool
+	receive bool
 }
 
 func (c *Client) Connect() error {
@@ -31,7 +32,7 @@ func (c *Client) Connect() error {
 	}
 	defer conn.Close()
 
-	fmt.Printf("Connection on %s\n", address)
+	log.Printf("Connection on %s\n", address)
 
 	sharedKey := secure.Handshake(conn)
 	secureConnection := secure.SecureConnection{Conn: conn, SharedKey: sharedKey, Buffer: &bytes.Buffer{}}
@@ -67,6 +68,55 @@ func (c *Client) Connect() error {
 		conn.Close()
 		log.Printf("done listing")
 
+	} else if c.receive {
+		log.Printf("receiving a file")
+		// list mode
+		msg := secure.PacketStart{
+			OperationType:   secure.OperationTypeReceive,
+			ClientName:      "Justin Hawkins",
+			ProtocolVersion: "v1.0",
+			AuthToken:       "abc123",
+		}
+		err := enc.Encode(msg)
+		if err != nil {
+			panic(err)
+		}
+
+		req := secure.PacketReceiveDataStartRequest{
+			Id: 234,
+		}
+		err = enc.Encode(req)
+		if err != nil {
+			panic(err)
+		}
+		// expect a response telling us if we can go ahead
+		res := secure.PacketReceiveDataStartResponse{}
+		err = dec.Decode(&res)
+		if err != nil {
+			panic(err)
+		}
+
+		log.Printf("server said %v", res)
+		if res.Status == secure.ReceiveDataStartResponseOK {
+			for {
+				res := secure.PacketReceiveDataNext{}
+				err = dec.Decode(&res)
+				if err != nil {
+					panic(err)
+				}
+				// log.Printf("got %d bytes, last is %t", res.Size, res.Last)
+				// print(res.Data)
+				os.Stdout.Write(res.Data[:res.Size])
+				if res.Last {
+					break
+				}
+			}
+			log.Printf("finished")
+		} else {
+			panic("don't handle this yet")
+		}
+
+		conn.Close()
 	} else {
 		// must be send mode
 
