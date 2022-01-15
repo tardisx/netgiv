@@ -18,6 +18,7 @@ type Client struct {
 	address string
 	port    int
 	list    bool
+	send    bool
 	receive bool
 }
 
@@ -116,8 +117,8 @@ func (c *Client) Connect() error {
 		}
 
 		conn.Close()
-	} else {
-		// must be send mode
+	} else if c.send {
+		//  send mode
 
 		msg := secure.PacketStart{
 			OperationType:   secure.OperationTypeSend,
@@ -176,6 +177,8 @@ func (c *Client) Connect() error {
 
 		conn.Close()
 
+	} else {
+		panic("no client mode set")
 	}
 	return nil
 

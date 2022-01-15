@@ -49,7 +49,8 @@ func ConstructSecureMessage(sm []byte) SecureMessage {
 }
 
 type SecureConnection struct {
-	Conn      *net.TCPConn
+	// Conn      *net.TCPConn
+	Conn      io.ReadWriteCloser
 	SharedKey *[32]byte
 	Buffer    *bytes.Buffer
 }
