@@ -12,7 +12,7 @@ import (
 func main() {
 	log.SetFlags(log.Lshortfile)
 	port := flag.Int("port", 9000, "Port to run server/client on.")
-	addr := flag.String("a", "61.245.149.58", "address to connect to.")
+	addr := flag.String("a", "127.0.0.1", "address to connect to.")
 	isServer := flag.Bool("s", false, "Set if running the server.")
 	isList := flag.Bool("l", false, "Set if requesting a list")
 	isSend := flag.Bool("c", false, "Set if sending a file (copy)")
