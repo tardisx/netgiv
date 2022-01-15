@@ -21,7 +21,6 @@ func main() {
 		s := Server{port: *port}
 		s.Run()
 	} else {
-		log.Printf("Client running on %d\n", *port)
 		c := Client{port: *port, address: *addr, list: *isList, receive: *isReceive}
 		err := c.Connect()
 		if err != nil {

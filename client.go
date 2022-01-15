@@ -83,7 +83,7 @@ func (c *Client) Connect() error {
 		}
 
 		req := secure.PacketReceiveDataStartRequest{
-			Id: 234,
+			Id: 0, // 0 means last? Change to do a fetch?
 		}
 		err = enc.Encode(req)
 		if err != nil {
@@ -96,7 +96,6 @@ func (c *Client) Connect() error {
 			panic(err)
 		}
 
-		log.Printf("server said %v", res)
 		if res.Status == secure.ReceiveDataStartResponseOK {
 			for {
 				res := secure.PacketReceiveDataNext{}
@@ -104,16 +103,16 @@ func (c *Client) Connect() error {
 				if err != nil {
 					panic(err)
 				}
-				// log.Printf("got %d bytes, last is %t", res.Size, res.Last)
-				// print(res.Data)
 				os.Stdout.Write(res.Data[:res.Size])
 				if res.Last {
 					break
 				}
 			}
 			log.Printf("finished")
+		} else if res.Status == secure.ReceiveDataStartResponseNotFound {
+			log.Printf("ngf not found")
 		} else {
-			panic("don't handle this yet")
+			panic("unknown status")
 		}
 
 		conn.Close()

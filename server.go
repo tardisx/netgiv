@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/signal"
 	"sync/atomic"
 	"time"
 
@@ -27,6 +28,7 @@ type NGF struct {
 	Filename  string // could be empty string if we were not supplied with one
 	Kind      string //
 	Size      uint64 // file size
+	Timestamp time.Time
 }
 
 var ngfs []NGF
@@ -43,6 +45,23 @@ func (s *Server) Run() {
 	}
 
 	ngfs = make([]NGF, 0)
+
+	go func() {
+		sigchan := make(chan os.Signal)
+		signal.Notify(sigchan, os.Interrupt)
+		<-sigchan
+
+		for _, ngf := range ngfs {
+			log.Printf("removing file: %s", ngf.StorePath)
+			err := os.Remove(ngf.StorePath)
+			if err != nil {
+				log.Printf("could not remove %s: %v", ngf.StorePath, err)
+			}
+		}
+		os.Exit(0)
+	}()
+
+	// start main program tasks
 
 	for {
 		conn, err := listener.AcceptTCP()
@@ -106,6 +125,7 @@ func handleConnection(conn *net.TCPConn) {
 			Kind:      "",
 			Size:      0,
 			Id:        atomic.AddUint32(&globalId, 1),
+			Timestamp: time.Now(),
 		}
 
 		if err != nil {
@@ -158,25 +178,58 @@ func handleConnection(conn *net.TCPConn) {
 		}
 
 		log.Printf("The asked for %v", req)
+
+		// do we have this ngf by id?
+		var requestedNGF *NGF
+
+		if len(ngfs) > 0 {
+			if req.Id == 0 {
+				// they want the most recent one
+				requestedNGF = &ngfs[len(ngfs)-1]
+			} else {
+				for _, ngf := range ngfs {
+					if ngf.Id == req.Id {
+						requestedNGF = &ngf
+					}
+				}
+			}
+		}
+
+		if requestedNGF == nil {
+			// not found
+			log.Printf("user requested %d, not found", req.Id)
+			res := secure.PacketReceiveDataStartResponse{
+				Status: secure.ReceiveDataStartResponseNotFound,
+			}
+			err = enc.Encode(res)
+			if err != nil {
+				log.Printf("could not send NotFound: %v", err)
+			}
+
+			return
+		}
+
 		res := secure.PacketReceiveDataStartResponse{
 			Status:    secure.ReceiveDataStartResponseOK,
-			Filename:  "abcdef",
-			Kind:      "",
-			TotalSize: 12340,
+			Filename:  requestedNGF.Filename,
+			Kind:      requestedNGF.Kind,
+			TotalSize: uint32(requestedNGF.Size),
 		}
 		err = enc.Encode(res)
 		if err != nil {
 			log.Printf("error sending PacketReceiveDataStartResponse: %v", err)
 			return
 		}
-
-		log.Printf("%#v", ngfs)
-
 		// now just start sending the file in batches
 		buf := make([]byte, 2048)
-		filename := ngfs[0].StorePath
+		filename := requestedNGF.StorePath
 		log.Printf("opening %s", filename)
 		f, err := os.Open(filename)
+		if err != nil {
+			log.Printf("could not find file %s: %v", filename, err)
+			return
+		}
+
 		for {
 			n, err := f.Read(buf)
 			eof := false
