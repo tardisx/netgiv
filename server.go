@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	"github.com/h2non/filetype"
 
@@ -129,7 +130,7 @@ func handleConnection(conn *net.TCPConn) {
 		}
 
 		if err != nil {
-			log.Printf("got error with temp file: %w", err)
+			log.Printf("got error with temp file: %v", err)
 			return
 		}
 		sendData := secure.PacketSendDataNext{}
@@ -149,7 +150,19 @@ func handleConnection(conn *net.TCPConn) {
 			// we don't have enough in the very first packet? This might need rework.
 			if !determinedKind {
 				kind, _ := filetype.Match(sendData.Data)
-				ngf.Kind = kind.MIME.Value
+
+				if kind.MIME.Value == "" {
+					// this is pretty fragile. If our chunk boundary happens in the
+					// middle of an actual UTF-8 character, we will fail this test.
+					// However it's good for small chunks of text which fit in a
+					// single chunk, which I suspect to be a common use case.
+					if utf8.ValidString(string(sendData.Data)) {
+						ngf.Kind = "UTF-8 text"
+					}
+				} else {
+					ngf.Kind = kind.MIME.Value
+				}
+
 				determinedKind = true
 			}
 
