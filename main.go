@@ -36,6 +36,8 @@ func main() {
 
 			} else if !stdinTTY && stdoutTTY {
 				*isSend = true
+			} else if !stdinTTY && !stdoutTTY {
+				log.Fatal("I can't cope with both stdin and stdout being pipes")
 			}
 
 		}
