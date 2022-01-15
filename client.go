@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 
+	"github.com/dustin/go-humanize"
 	"github.com/tardisx/netgiv/secure"
 )
 
@@ -64,7 +65,7 @@ func (c *Client) Connect() error {
 			if err != nil {
 				panic(err)
 			}
-			log.Printf("%d: %s (%d bytes)", listPacket.Id, listPacket.Kind, listPacket.FileSize)
+			log.Printf("%d: %s (%s)", listPacket.Id, listPacket.Kind, humanize.Bytes(uint64(listPacket.FileSize)))
 		}
 		conn.Close()
 		log.Printf("done listing")
