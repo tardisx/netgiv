@@ -97,8 +97,20 @@ func handleConnection(conn *net.TCPConn) {
 		log.Printf("connection has been closed prematurely")
 		return
 	}
+
+	// xxx we need to add a response part here so they can be notified
 	if err != nil {
 		log.Printf("error while expecting PacketStart: %v", err)
+		return
+	}
+
+	if start.ProtocolVersion != "1.0" {
+		log.Printf("bad protocol version")
+		return
+	}
+
+	if start.AuthToken != "dummy" {
+		log.Print("bad authtoken")
 		return
 	}
 

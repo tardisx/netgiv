@@ -112,6 +112,7 @@ func BenchmarkPPS(b *testing.B) {
 
 		out := make([]byte, 16384)
 		n, err := dstSecConn.Read(out)
+
 		if err != nil {
 			b.Errorf("got error %v", err)
 		}

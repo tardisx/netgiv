@@ -48,8 +48,8 @@ func (c *Client) Connect() error {
 		msg := secure.PacketStart{
 			OperationType:   secure.OperationTypeList,
 			ClientName:      "Justin Hawkins",
-			ProtocolVersion: "v1.0",
-			AuthToken:       "abc123",
+			ProtocolVersion: "1.0",
+			AuthToken:       "dummy",
 		}
 		err := enc.Encode(msg)
 		if err != nil {
@@ -76,8 +76,8 @@ func (c *Client) Connect() error {
 		msg := secure.PacketStart{
 			OperationType:   secure.OperationTypeReceive,
 			ClientName:      "Justin Hawkins",
-			ProtocolVersion: "v1.0",
-			AuthToken:       "abc123",
+			ProtocolVersion: "1.0",
+			AuthToken:       "dummy",
 		}
 		err := enc.Encode(msg)
 		if err != nil {
@@ -124,8 +124,8 @@ func (c *Client) Connect() error {
 		msg := secure.PacketStart{
 			OperationType:   secure.OperationTypeSend,
 			ClientName:      "Justin Hawkins",
-			ProtocolVersion: "v1.0",
-			AuthToken:       "abc123",
+			ProtocolVersion: "1.0",
+			AuthToken:       "dummy",
 		}
 
 		// gob.Register(secure.PacketSendStart{})
