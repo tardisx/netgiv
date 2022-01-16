@@ -7,9 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"os"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/dustin/go-humanize"
 	"github.com/tardisx/netgiv/secure"
@@ -44,17 +45,12 @@ func (c *Client) Connect() error {
 
 	if c.list {
 		log.Printf("requesting file list")
-		// list mode
-		msg := secure.PacketStart{
-			OperationType:   secure.OperationTypeList,
-			ClientName:      "Justin Hawkins",
-			ProtocolVersion: "1.0",
-			AuthToken:       "dummy",
-		}
-		err := enc.Encode(msg)
+
+		err := connectToServer(secure.OperationTypeList, enc, dec)
 		if err != nil {
-			panic(err)
+			return fmt.Errorf("could not connect and auth: %v", err)
 		}
+
 		// now we expect to get stuff back until we don't
 		for {
 			listPacket := secure.PacketListData{}
@@ -72,16 +68,10 @@ func (c *Client) Connect() error {
 
 	} else if c.receive {
 		log.Printf("receiving a file")
-		// list mode
-		msg := secure.PacketStart{
-			OperationType:   secure.OperationTypeReceive,
-			ClientName:      "Justin Hawkins",
-			ProtocolVersion: "1.0",
-			AuthToken:       "dummy",
-		}
-		err := enc.Encode(msg)
+
+		err := connectToServer(secure.OperationTypeReceive, enc, dec)
 		if err != nil {
-			panic(err)
+			return fmt.Errorf("could not connect and auth: %v", err)
 		}
 
 		req := secure.PacketReceiveDataStartRequest{
@@ -121,17 +111,9 @@ func (c *Client) Connect() error {
 	} else if c.send {
 		//  send mode
 
-		msg := secure.PacketStart{
-			OperationType:   secure.OperationTypeSend,
-			ClientName:      "Justin Hawkins",
-			ProtocolVersion: "1.0",
-			AuthToken:       "dummy",
-		}
-
-		// gob.Register(secure.PacketSendStart{})
-		err := enc.Encode(msg)
+		err := connectToServer(secure.OperationTypeSend, enc, dec)
 		if err != nil {
-			panic(err)
+			return fmt.Errorf("could not connect and auth: %v", err)
 		}
 
 		data := secure.PacketSendDataStart{
@@ -183,4 +165,37 @@ func (c *Client) Connect() error {
 	}
 	return nil
 
+}
+
+func connectToServer(op secure.OperationTypeEnum, enc *gob.Encoder, dec *gob.Decoder) error {
+
+	// list mode
+	startPacket := secure.PacketStartRequest{
+		OperationType:   op,
+		ClientName:      "",
+		ProtocolVersion: "1.0",
+		AuthToken:       "dummy",
+	}
+	err := enc.Encode(startPacket)
+	if err != nil {
+		return fmt.Errorf("could not send start packet: %v", err)
+	}
+
+	// check the response is ok
+	response := secure.PacketStartResponse{}
+	err = dec.Decode(&response)
+	if err != nil {
+		return fmt.Errorf("could not receive start packet response: %v", err)
+	}
+
+	if response.Response == secure.PacketStartResponseEnumWrongProtocol {
+		log.Print("wrong protocol version")
+		return errors.New("protocol version mismatch")
+
+	}
+	if response.Response == secure.PacketStartResponseEnumBadAuthToken {
+		log.Print("bad authtoken")
+		return errors.New("bad authtoken")
+	}
+	return nil
 }

@@ -182,13 +182,28 @@ const (
 	OperationTypeReceive
 )
 
-// PacketStart is sent from the client to the server at the beginning
+// PacketStartRequest is sent from the client to the server at the beginning
 // to authenticate and annonce the requested particular operation
-type PacketStart struct {
+type PacketStartRequest struct {
 	OperationType   OperationTypeEnum
 	ClientName      string
 	ProtocolVersion string
 	AuthToken       string
+}
+
+type PacketStartResponseEnum byte
+
+const (
+	// Client can connect
+	PacketStartResponseEnumOK PacketStartResponseEnum = iota
+	// Client using wrong protocol version
+	PacketStartResponseEnumWrongProtocol
+	// Client supplied bad auth token
+	PacketStartResponseEnumBadAuthToken
+)
+
+type PacketStartResponse struct {
+	Response PacketStartResponseEnum
 }
 
 type PacketSendDataStart struct {

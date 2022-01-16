@@ -3,15 +3,18 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"os"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/mattn/go-isatty"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 )
 
 func main() {
-	log.SetFlags(log.Lshortfile)
-	port := flag.Int("port", 9000, "Port to run server/client on.")
+	// log.SetFlags(log.Lshortfile)
+	flag.Int("port", 4912, "Port to run server/client on.")
 	addr := flag.String("a", "127.0.0.1", "address to connect to.")
 	isServer := flag.Bool("s", false, "Set if running the server.")
 	isList := flag.Bool("l", false, "Set if requesting a list")
@@ -20,9 +23,18 @@ func main() {
 
 	flag.Parse()
 
+	viper.SetDefault("port", 4512)
+
+	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+	pflag.Parse()
+	viper.BindPFlags(pflag.CommandLine)
+
+	port := viper.GetInt("port") // retrieve value from viper
+
 	if *isServer {
-		log.Printf("Server running on %d\n", *port)
-		s := Server{port: *port}
+
+		log.Printf("Server running on %d\n", port)
+		s := Server{port: port}
 		s.Run()
 	} else {
 		if !*isList && !*isSend && !*isReceive {
@@ -47,7 +59,7 @@ func main() {
 			*isList = true
 		}
 
-		c := Client{port: *port, address: *addr, list: *isList, send: *isSend, receive: *isReceive}
+		c := Client{port: port, address: *addr, list: *isList, send: *isSend, receive: *isReceive}
 		err := c.Connect()
 		if err != nil {
 			fmt.Print(err)

@@ -5,13 +5,14 @@ import (
 	"encoding/gob"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"os"
 	"os/signal"
 	"sync/atomic"
 	"time"
 	"unicode/utf8"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/h2non/filetype"
 
@@ -41,14 +42,13 @@ func (s *Server) Run() {
 
 	listener, err := net.ListenTCP("tcp", networkAddress)
 	if err != nil {
-		fmt.Print(err)
-		os.Exit(2)
+		log.Fatalf("error creating listener: %v", err)
 	}
 
 	ngfs = make([]NGF, 0)
 
 	go func() {
-		sigchan := make(chan os.Signal)
+		sigchan := make(chan os.Signal, 1)
 		signal.Notify(sigchan, os.Interrupt)
 		<-sigchan
 
@@ -83,14 +83,14 @@ func handleConnection(conn *net.TCPConn) {
 	sharedKey := secure.Handshake(conn)
 	secureConnection := secure.SecureConnection{Conn: conn, SharedKey: sharedKey, Buffer: &bytes.Buffer{}}
 
-	gob.Register(secure.PacketStart{})
+	gob.Register(secure.PacketStartRequest{})
 	gob.Register(secure.PacketSendDataStart{})
 
 	dec := gob.NewDecoder(&secureConnection)
 	enc := gob.NewEncoder(&secureConnection)
 
 	// Get the start packet
-	start := secure.PacketStart{}
+	start := secure.PacketStartRequest{}
 
 	err := dec.Decode(&start)
 	if err == io.EOF {
@@ -98,21 +98,31 @@ func handleConnection(conn *net.TCPConn) {
 		return
 	}
 
-	// xxx we need to add a response part here so they can be notified
 	if err != nil {
 		log.Printf("error while expecting PacketStart: %v", err)
 		return
 	}
 
+	// tell teh client the dealio
+	startResponse := secure.PacketStartResponse{}
+
 	if start.ProtocolVersion != "1.0" {
 		log.Printf("bad protocol version")
+		startResponse.Response = secure.PacketStartResponseEnumWrongProtocol
+		enc.Encode(startResponse)
 		return
 	}
 
-	if start.AuthToken != "dummy" {
+	if start.AuthToken != "dummy2" {
 		log.Print("bad authtoken")
+		startResponse.Response = secure.PacketStartResponseEnumBadAuthToken
+		enc.Encode(startResponse)
 		return
 	}
+
+	// otherwise we are good to continue, tell the client that
+	startResponse.Response = secure.PacketStartResponseEnumOK
+	enc.Encode(startResponse)
 
 	conn.SetDeadline(time.Now().Add(time.Second * 5))
 
