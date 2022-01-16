@@ -1,24 +1,23 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
 
 	log "github.com/sirupsen/logrus"
 
 	"github.com/mattn/go-isatty"
-	"github.com/spf13/pflag"
+	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
 
 func main() {
-	isServer := flag.Bool("s", false, "Run netgiv in server mode")
+	isServer := flag.Bool("server", false, "Run netgiv in server mode")
 
 	// client mode flags
-	isList := flag.Bool("l", false, "Set if requesting a list")
-	isSend := flag.Bool("c", false, "sending stdin to netgiv server (copy)")
-	isReceive := flag.Bool("p", false, "receive file from netgiv server to stdout (paste)")
+	isList := flag.BoolP("list", "l", false, "Set if requesting a list")
+	isSend := flag.BoolP("copy", "c", false, "sending stdin to netgiv server (copy)")
+	isReceive := flag.BoolP("paste", "p", false, "receive file from netgiv server to stdout (paste)")
 	debug := flag.Bool("debug", false, "turn on debug logging")
 	flag.String("address", "", "IP address/hostname of the netgiv server")
 
@@ -44,9 +43,8 @@ func main() {
 		}
 	}
 
-	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-	pflag.Parse()
-	viper.BindPFlags(pflag.CommandLine)
+	flag.Parse()
+	viper.BindPFlags(flag.CommandLine)
 
 	viper.SetEnvPrefix("NETGIV")
 	viper.BindEnv("authtoken")
@@ -57,12 +55,12 @@ func main() {
 
 	address := viper.GetString("address")
 
-	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "Usage of %s:\n", os.Args[0])
-		flag.PrintDefaults()
-		fmt.Printf("\nIf stdin or stdout is a pipe, %s will automatically choose an appropriate\n", os.Args[0])
-		fmt.Printf("copy (-c) or paste (-p) mode\n")
-	}
+	// flag.Usage = func() {
+	// 	fmt.Fprintf(flag.CommandLine.Output(), "Usage of %s:\n", os.Args[0])
+	// 	flag.PrintDefaults()
+	// 	fmt.Printf("\nIf stdin or stdout is a pipe, %s will automatically choose an appropriate\n", os.Args[0])
+	// 	fmt.Printf("copy (-c) or paste (-p) mode\n")
+	// }
 
 	if *helpConfig {
 		fmt.Print(

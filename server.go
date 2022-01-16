@@ -38,7 +38,7 @@ var ngfs []NGF
 var globalId uint32
 
 func (s *Server) Run() {
-	log.Debugf("starting server on :%d", s.port)
+	log.Infof("starting server on :%d", s.port)
 	address := fmt.Sprintf(":%d", s.port)
 	networkAddress, _ := net.ResolveTCPAddr("tcp", address)
 
