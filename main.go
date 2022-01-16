@@ -11,6 +11,8 @@ import (
 	"github.com/spf13/viper"
 )
 
+var CurrentVersion = "v0.0.1"
+
 func main() {
 	isServer := flag.Bool("server", false, "Run netgiv in server mode")
 
