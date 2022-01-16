@@ -93,6 +93,10 @@ Example:
 port: 5412
 authtoken: verysecretvaluehere
 address: 10.1.12.20
+
+Note that it is possible to set/override the authtoken by setting the NETGIV_AUTHTOKEN
+environment variable. This may be preferable in some environments.
+
 `)
 		os.Exit(1)
 
