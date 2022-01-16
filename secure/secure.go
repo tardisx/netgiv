@@ -6,8 +6,9 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
-	"log"
 	"net"
+
+	log "github.com/sirupsen/logrus"
 
 	"golang.org/x/crypto/nacl/box"
 )
@@ -62,32 +63,16 @@ func (s *SecureConnection) Read(p []byte) (int, error) {
 
 	outputBytes := make([]byte, 0)
 
-	// log.Printf("READ: start, p %d/%d, buffer contains currently contains %d bytes", len(p), cap(p), s.Buffer.Len())
-
 	n, err := s.Conn.Read(message)
 
 	if err != nil && err != io.EOF {
-		log.Printf("read: error in connection read %v", err)
+		log.Errorf("read: error in connection read %v", err)
 		return 0, err
 	}
 	if err == io.EOF {
 		eof = true
 	}
-	// if n == 0 && bytes.Buffer.{
-	// 	return 0, io.EOF
-	// }
-
-	// log.Printf("read: got %d bytes on the wire, error is %v", n, err)
-	// log.Printf("looks like %v", message[:n])
-	// if eof {
-	// 	log.Printf("eof is true - this is our final read!")
-	// }
-	// log.Printf("writing n=%d", n)
-	// log.Printf("writing  buffersize=%v", s.Buffer)
-
-	// log.Printf("writing n=%d buffersize=%d this: %v", n, s.Buffer.Len(), s.Buffer.Bytes()[:n])
 	s.Buffer.Write(message[:n])
-	// log.Printf("read: appended them to the buffer which is now %d bytes", len(s.Buffer.Bytes()))
 
 	for {
 
@@ -104,11 +89,11 @@ func (s *SecureConnection) Read(p []byte) (int, error) {
 		encryptedBytes := make([]byte, actualPacketEnd)
 		n, err := s.Buffer.Read(encryptedBytes)
 		if err != nil && err != io.EOF {
-			log.Printf("failed to get encrypted bytes from buffer?")
+			log.Errorf("failed to get encrypted bytes from buffer?")
 			return 0, errors.New("failed to get encrypted bytes from buffer")
 		}
 		if n != int(actualPacketEnd) {
-			log.Printf("failed to get right number of encrypted bytes from buffer")
+			log.Errorf("failed to get right number of encrypted bytes from buffer")
 			return 0, errors.New("failed to get right number of encrypted bytes from buffer")
 
 		}
@@ -123,7 +108,7 @@ func (s *SecureConnection) Read(p []byte) (int, error) {
 		outputBytes = append(outputBytes, decryptedMessage...)
 
 		if eof && s.Buffer.Len() == 0 {
-			log.Printf("returning the final packet")
+			log.Debugf("returning the final packet")
 			break
 		}
 
@@ -136,25 +121,21 @@ func (s *SecureConnection) Read(p []byte) (int, error) {
 
 	copy(p, outputBytes)
 
-	// log.Printf("returning %d decrypted bytes with err: %w", len(outputBytes), err)
-	// log.Printf("READ: end, p %d/%d, buffer contains currently contains %d bytes", len(p), cap(p), s.Buffer.Len())
-
 	return len(outputBytes), err
 }
 
 func (s *SecureConnection) Write(p []byte) (int, error) {
-	// func (s *SecureConnection) Write(o encoding.BinaryMarshaler) (int, error) {
 	var nonce [24]byte
 
 	// Create a new nonce for each message sent
 	rand.Read(nonce[:])
-	// log.Printf("before encryption it is %d bytes", len(p))
+
 	encryptedMessage := box.SealAfterPrecomputation(nil, p, &nonce, s.SharedKey)
 	sm := SecureMessage{Msg: encryptedMessage, Nonce: nonce}
 
 	// Write it to the connection
 	wireBytes := sm.toByteArray()
-	// log.Printf("putting %d bytes on the wire\n  nonce: %v\n  bytes: %v", len(wireBytes), nonce, wireBytes)
+
 	return s.Conn.Write(wireBytes)
 }
 

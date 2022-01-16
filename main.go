@@ -13,15 +13,13 @@ import (
 )
 
 func main() {
-	// log.SetFlags(log.Lshortfile)
-	// flag.Int("port", 4912, "Port to run server/client on.")
-	// addr := flag.String("a", "127.0.0.1", "address to connect to.")
 	isServer := flag.Bool("s", false, "Run netgiv in server mode")
 
 	// client mode flags
 	isList := flag.Bool("l", false, "Set if requesting a list")
 	isSend := flag.Bool("c", false, "sending stdin to netgiv server (copy)")
 	isReceive := flag.Bool("p", false, "receive file from netgiv server to stdout (paste)")
+	debug := flag.Bool("debug", false, "turn on debug logging")
 	flag.String("address", "", "IP address/hostname of the netgiv server")
 
 	helpConfig := flag.Bool("help-config", false, "Show help on netgiv configuration")
@@ -100,6 +98,10 @@ environment variable. This may be preferable in some environments.
 `)
 		os.Exit(1)
 
+	}
+
+	if *debug {
+		log.SetLevel(log.DebugLevel)
 	}
 
 	if *isServer {

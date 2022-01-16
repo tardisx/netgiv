@@ -38,6 +38,7 @@ var ngfs []NGF
 var globalId uint32
 
 func (s *Server) Run() {
+	log.Debugf("starting server on :%d", s.port)
 	address := fmt.Sprintf(":%d", s.port)
 	networkAddress, _ := net.ResolveTCPAddr("tcp", address)
 
@@ -95,12 +96,12 @@ func (s *Server) handleConnection(conn *net.TCPConn) {
 
 	err := dec.Decode(&start)
 	if err == io.EOF {
-		log.Printf("connection has been closed prematurely")
+		log.Errorf("connection has been closed prematurely")
 		return
 	}
 
 	if err != nil {
-		log.Printf("error while expecting PacketStart: %v", err)
+		log.Errorf("error while expecting PacketStart: %v", err)
 		return
 	}
 
@@ -108,14 +109,14 @@ func (s *Server) handleConnection(conn *net.TCPConn) {
 	startResponse := secure.PacketStartResponse{}
 
 	if start.ProtocolVersion != "1.0" {
-		log.Printf("bad protocol version")
+		log.Errorf("bad protocol version")
 		startResponse.Response = secure.PacketStartResponseEnumWrongProtocol
 		enc.Encode(startResponse)
 		return
 	}
 
 	if start.AuthToken != s.authToken {
-		log.Print("bad authtoken")
+		log.Errorf("bad authtoken")
 		startResponse.Response = secure.PacketStartResponseEnumBadAuthToken
 		enc.Encode(startResponse)
 		return
@@ -128,13 +129,13 @@ func (s *Server) handleConnection(conn *net.TCPConn) {
 	conn.SetDeadline(time.Now().Add(time.Second * 5))
 
 	if start.OperationType == secure.OperationTypeSend {
-		log.Printf("file incoming")
+		log.Debugf("file incoming")
 
 		sendStart := secure.PacketSendDataStart{}
 
 		err = dec.Decode(&sendStart)
 		if err != nil {
-			log.Printf("error - expecting PacketSendDataStart: %v", err)
+			log.Errorf("error - expecting PacketSendDataStart: %v", err)
 			return
 		}
 		file, err := os.CreateTemp("", "netgiv_")
@@ -153,7 +154,7 @@ func (s *Server) handleConnection(conn *net.TCPConn) {
 		}
 
 		if err != nil {
-			log.Printf("got error with temp file: %v", err)
+			log.Errorf("got error with temp file: %v", err)
 			return
 		}
 		sendData := secure.PacketSendDataNext{}
@@ -165,7 +166,7 @@ func (s *Server) handleConnection(conn *net.TCPConn) {
 				break
 			}
 			if err != nil {
-				log.Printf("error while expecting PacketSendDataNext: %s", err)
+				log.Errorf("error while expecting PacketSendDataNext: %s", err)
 				return
 			}
 
@@ -193,7 +194,7 @@ func (s *Server) handleConnection(conn *net.TCPConn) {
 		}
 		info, err := file.Stat()
 		if err != nil {
-			log.Printf("couldn't stat file %s", err)
+			log.Errorf("couldn't stat file %s", err)
 			return
 		}
 		ngf.Size = uint64(info.Size())
@@ -233,7 +234,7 @@ func (s *Server) handleConnection(conn *net.TCPConn) {
 
 		if requestedNGF == nil {
 			// not found
-			log.Printf("user requested %d, not found", req.Id)
+			log.Errorf("user requested %d, not found", req.Id)
 			res := secure.PacketReceiveDataStartResponse{
 				Status: secure.ReceiveDataStartResponseNotFound,
 			}
@@ -253,16 +254,16 @@ func (s *Server) handleConnection(conn *net.TCPConn) {
 		}
 		err = enc.Encode(res)
 		if err != nil {
-			log.Printf("error sending PacketReceiveDataStartResponse: %v", err)
+			log.Errorf("error sending PacketReceiveDataStartResponse: %v", err)
 			return
 		}
 		// now just start sending the file in batches
 		buf := make([]byte, 2048)
 		filename := requestedNGF.StorePath
-		log.Printf("opening %s", filename)
+		log.Debugf("opening %s", filename)
 		f, err := os.Open(filename)
 		if err != nil {
-			log.Printf("could not find file %s: %v", filename, err)
+			log.Errorf("could not find file %s: %v", filename, err)
 			return
 		}
 
@@ -271,7 +272,7 @@ func (s *Server) handleConnection(conn *net.TCPConn) {
 			eof := false
 
 			if err != nil && err != io.EOF {
-				log.Printf("error reading data: %v", err)
+				log.Errorf("error reading data: %v", err)
 				break
 			}
 			if err == io.EOF {
@@ -285,7 +286,7 @@ func (s *Server) handleConnection(conn *net.TCPConn) {
 			}
 			err = enc.Encode(chunk)
 			if err != nil {
-				log.Printf("error sending chunk: %v", err)
+				log.Errorf("error sending chunk: %v", err)
 			}
 
 			if eof {
@@ -296,7 +297,7 @@ func (s *Server) handleConnection(conn *net.TCPConn) {
 		return
 
 	} else if start.OperationType == secure.OperationTypeList {
-		log.Printf("client requesting file list")
+		log.Debugf("client requesting file list")
 
 		for _, ngf := range ngfs {
 			p := secure.PacketListData{}
@@ -306,12 +307,12 @@ func (s *Server) handleConnection(conn *net.TCPConn) {
 			p.Filename = ngf.Filename
 			enc.Encode(p)
 		}
-		log.Printf("done sending list, closing connection")
+		log.Debugf("done sending list, closing connection")
 
 		return
 
 	} else {
-		log.Printf("bad operation")
+		log.Errorf("bad operation")
 		return
 	}
 

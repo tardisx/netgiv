@@ -32,19 +32,12 @@ func (c *Client) Connect() error {
 	d := net.Dialer{Timeout: 5 * time.Second}
 
 	conn, err := d.Dial("tcp", address)
-
-	// serverAddress, err := net.ResolveTCPAddr("tcp", address)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// conn, err := d.Dial("tcp", serverAddress)
 	if err != nil {
 		return fmt.Errorf("problem connecting to server, is it running?: %v", err)
 	}
 	defer conn.Close()
 
-	log.Printf("Connection on %s\n", address)
+	log.Debugf("established connection on %s", address)
 
 	tcpConn, ok := conn.(*net.TCPConn)
 	if !ok {
@@ -58,7 +51,7 @@ func (c *Client) Connect() error {
 	dec := gob.NewDecoder(&secureConnection)
 
 	if c.list {
-		log.Printf("requesting file list")
+		log.Debugf("requesting file list")
 
 		err := c.connectToServer(secure.OperationTypeList, enc, dec)
 		if err != nil {
@@ -75,13 +68,13 @@ func (c *Client) Connect() error {
 			if err != nil {
 				panic(err)
 			}
-			log.Printf("%d: %s (%s)", listPacket.Id, listPacket.Kind, humanize.Bytes(uint64(listPacket.FileSize)))
+			fmt.Printf("%d: %s (%s)\n", listPacket.Id, listPacket.Kind, humanize.Bytes(uint64(listPacket.FileSize)))
 		}
 		conn.Close()
-		log.Printf("done listing")
+		log.Debugf("done listing")
 
 	} else if c.receive {
-		log.Printf("receiving a file")
+		log.Debugf("receiving a file")
 
 		err := c.connectToServer(secure.OperationTypeReceive, enc, dec)
 		if err != nil {
@@ -114,9 +107,9 @@ func (c *Client) Connect() error {
 					break
 				}
 			}
-			log.Printf("finished")
+			log.Debugf("finished")
 		} else if res.Status == secure.ReceiveDataStartResponseNotFound {
-			log.Printf("ngf not found")
+			log.Error("ngf not found")
 		} else {
 			panic("unknown status")
 		}
@@ -164,13 +157,13 @@ func (c *Client) Connect() error {
 				Size: 5000,
 				Data: buf,
 			}
-			enc.Encode(send)
+			err = enc.Encode(send)
 			// time.Sleep(time.Second)
 			if err != nil {
 				log.Fatal(err)
 			}
 		}
-		log.Println("Bytes:", nBytes, "Chunks:", nChunks)
+		log.Debugf("Sent %s in %d chunks", humanize.Bytes(uint64(nBytes)), nChunks)
 
 		conn.Close()
 
