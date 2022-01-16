@@ -8,7 +8,7 @@ open my $fh, "<", "main.go" || die $!;
 my $version;
 while (<$fh>) {
   # CurrentVersion: "v0.04"
-  $version = $1 if /CurrentVersion\s*=\s*"(v[\d\.]+)"/;
+  $version = $1 if /CurrentVersion\s*=\s*"([\d\.]+)"/;
 }
 close $fh;
 
