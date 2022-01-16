@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 
 	log "github.com/sirupsen/logrus"
 
@@ -11,15 +12,47 @@ import (
 	"github.com/spf13/viper"
 )
 
-var CurrentVersion = "v0.0.1"
+var CurrentVersion = "v0.0.2"
+
+type PasteValue struct {
+	PasteRequired bool
+	PasteNumber   uint
+}
+
+func (v *PasteValue) String() string {
+	if v.PasteRequired {
+		return fmt.Sprintf("YES: %d", v.PasteNumber)
+	}
+	return "0"
+}
+
+func (v *PasteValue) Set(s string) error {
+	v.PasteRequired = true
+	num, err := strconv.ParseUint(s, 10, 64)
+	if err != nil {
+		return err
+	}
+
+	v.PasteNumber = uint(num)
+	return nil
+}
+
+func (v *PasteValue) Type() string {
+	return "int"
+
+}
 
 func main() {
 	isServer := flag.Bool("server", false, "Run netgiv in server mode")
 
 	// client mode flags
-	isList := flag.BoolP("list", "l", false, "Set if requesting a list")
+	isList := flag.BoolP("list", "l", false, "Returns a list of current items on the server")
 	isSend := flag.BoolP("copy", "c", false, "sending stdin to netgiv server (copy)")
-	isReceive := flag.BoolP("paste", "p", false, "receive file from netgiv server to stdout (paste)")
+
+	pasteFlag := PasteValue{}
+	flag.VarP(&pasteFlag, "paste", "p", "receive from netgiv server to stdout (paste), with optional number (see --list)")
+	flag.Lookup("paste").NoOptDefVal = "0"
+
 	debug := flag.Bool("debug", false, "turn on debug logging")
 	flag.String("address", "", "IP address/hostname of the netgiv server")
 
@@ -30,6 +63,11 @@ func main() {
 	flag.Int("port", 0, "Port")
 
 	flag.Parse()
+
+	receiveNum := int(pasteFlag.PasteNumber)
+	if !pasteFlag.PasteRequired {
+		receiveNum = -1
+	}
 
 	viper.AddConfigPath("$HOME/.netgiv/") // call multiple times to add many search paths
 	viper.SetConfigType("yaml")
@@ -56,13 +94,6 @@ func main() {
 	authtoken := viper.GetString("authtoken")
 
 	address := viper.GetString("address")
-
-	// flag.Usage = func() {
-	// 	fmt.Fprintf(flag.CommandLine.Output(), "Usage of %s:\n", os.Args[0])
-	// 	flag.PrintDefaults()
-	// 	fmt.Printf("\nIf stdin or stdout is a pipe, %s will automatically choose an appropriate\n", os.Args[0])
-	// 	fmt.Printf("copy (-c) or paste (-p) mode\n")
-	// }
 
 	if *helpConfig {
 		fmt.Print(
@@ -108,15 +139,14 @@ environment variable. This may be preferable in some environments.
 		s := Server{port: port, authToken: authtoken}
 		s.Run()
 	} else {
-
-		if !*isList && !*isSend && !*isReceive {
+		if !*isList && !*isSend && receiveNum == -1 {
 			// try to work out the intent based on whether or not stdin/stdout
 			// are ttys
 			stdinTTY := isatty.IsTerminal(os.Stdin.Fd())
 			stdoutTTY := isatty.IsTerminal(os.Stdout.Fd())
 
 			if stdinTTY && !stdoutTTY {
-				*isReceive = true
+				receiveNum = 0
 			} else if !stdinTTY && stdoutTTY {
 				*isSend = true
 			} else if !stdinTTY && !stdoutTTY {
@@ -128,7 +158,7 @@ environment variable. This may be preferable in some environments.
 
 		}
 
-		c := Client{port: port, address: address, list: *isList, send: *isSend, receive: *isReceive, authToken: authtoken}
+		c := Client{port: port, address: address, list: *isList, send: *isSend, receiveNum: receiveNum, authToken: authtoken}
 		err := c.Connect()
 		if err != nil {
 			fmt.Print(err)

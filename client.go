@@ -18,12 +18,12 @@ import (
 )
 
 type Client struct {
-	address   string
-	port      int
-	list      bool
-	send      bool
-	receive   bool
-	authToken string
+	address    string
+	port       int
+	list       bool
+	send       bool
+	receiveNum int
+	authToken  string
 }
 
 func (c *Client) Connect() error {
@@ -73,8 +73,8 @@ func (c *Client) Connect() error {
 		conn.Close()
 		log.Debugf("done listing")
 
-	} else if c.receive {
-		log.Debugf("receiving a file")
+	} else if c.receiveNum >= 0 {
+		log.Debugf("receiving file %d", c.receiveNum)
 
 		err := c.connectToServer(secure.OperationTypeReceive, enc, dec)
 		if err != nil {
@@ -82,7 +82,7 @@ func (c *Client) Connect() error {
 		}
 
 		req := secure.PacketReceiveDataStartRequest{
-			Id: 0, // 0 means last? Change to do a fetch?
+			Id: uint32(c.receiveNum),
 		}
 		err = enc.Encode(req)
 		if err != nil {

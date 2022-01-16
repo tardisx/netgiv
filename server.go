@@ -201,7 +201,7 @@ func (s *Server) handleConnection(conn *net.TCPConn) {
 		file.Close()
 
 		ngfs = append(ngfs, ngf)
-		log.Printf("done receiving file")
+		log.Printf("done receiving file: %v", ngf)
 
 		return
 	} else if start.OperationType == secure.OperationTypeReceive {
@@ -214,25 +214,27 @@ func (s *Server) handleConnection(conn *net.TCPConn) {
 			return
 		}
 
-		log.Printf("The asked for %v", req)
+		log.Debugf("The asked for %v", req)
 
 		// do we have this ngf by id?
-		var requestedNGF *NGF
+		var requestedNGF NGF
 
 		if len(ngfs) > 0 {
 			if req.Id == 0 {
 				// they want the most recent one
-				requestedNGF = &ngfs[len(ngfs)-1]
+				requestedNGF = ngfs[len(ngfs)-1]
 			} else {
 				for _, ngf := range ngfs {
 					if ngf.Id == req.Id {
-						requestedNGF = &ngf
+						requestedNGF = ngf
 					}
 				}
 			}
 		}
 
-		if requestedNGF == nil {
+		log.Debugf("going to deliver %v", requestedNGF)
+
+		if requestedNGF.Id == 0 {
 			// not found
 			log.Errorf("user requested %d, not found", req.Id)
 			res := secure.PacketReceiveDataStartResponse{
