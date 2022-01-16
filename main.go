@@ -37,8 +37,7 @@ func main() {
 
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			// no config file maybe that's ok
-			panic(err)
+			// don't worry be happy
 		} else {
 			// Config file was found but another error was produced
 			log.Fatal(err)
@@ -56,14 +55,7 @@ func main() {
 	port := viper.GetInt("port") // retrieve value from viper
 	authtoken := viper.GetString("authtoken")
 
-	if authtoken == "" {
-		log.Fatal("authtoken must be set")
-	}
-
 	address := viper.GetString("address")
-	if !*isServer && address == "" {
-		log.Fatal("an address must be provided on the command line, or configuration")
-	}
 
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "Usage of %s:\n", os.Args[0])
@@ -102,6 +94,14 @@ environment variable. This may be preferable in some environments.
 
 	if *debug {
 		log.SetLevel(log.DebugLevel)
+	}
+
+	if authtoken == "" {
+		log.Fatal("authtoken must be set")
+	}
+
+	if !*isServer && address == "" {
+		log.Fatal("an address must be provided on the command line, or configuration")
 	}
 
 	if *isServer {
