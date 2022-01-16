@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 
@@ -17,27 +18,40 @@ import (
 )
 
 type Client struct {
-	address string
-	port    int
-	list    bool
-	send    bool
-	receive bool
+	address   string
+	port      int
+	list      bool
+	send      bool
+	receive   bool
+	authToken string
 }
 
 func (c *Client) Connect() error {
 	address := fmt.Sprintf("%s:%d", c.address, c.port)
 
-	serverAddress, _ := net.ResolveTCPAddr("tcp", address)
+	d := net.Dialer{Timeout: 5 * time.Second}
 
-	conn, err := net.DialTCP("tcp", nil, serverAddress)
+	conn, err := d.Dial("tcp", address)
+
+	// serverAddress, err := net.ResolveTCPAddr("tcp", address)
+	// if err != nil {
+	// 	return err
+	// }
+
+	// conn, err := d.Dial("tcp", serverAddress)
 	if err != nil {
-		return errors.New("problem connecting to server, is it running?\n")
+		return fmt.Errorf("problem connecting to server, is it running?: %v", err)
 	}
 	defer conn.Close()
 
 	log.Printf("Connection on %s\n", address)
 
-	sharedKey := secure.Handshake(conn)
+	tcpConn, ok := conn.(*net.TCPConn)
+	if !ok {
+		log.Fatal("could not assert")
+	}
+
+	sharedKey := secure.Handshake(tcpConn)
 	secureConnection := secure.SecureConnection{Conn: conn, SharedKey: sharedKey, Buffer: &bytes.Buffer{}}
 
 	enc := gob.NewEncoder(&secureConnection)
@@ -46,7 +60,7 @@ func (c *Client) Connect() error {
 	if c.list {
 		log.Printf("requesting file list")
 
-		err := connectToServer(secure.OperationTypeList, enc, dec)
+		err := c.connectToServer(secure.OperationTypeList, enc, dec)
 		if err != nil {
 			return fmt.Errorf("could not connect and auth: %v", err)
 		}
@@ -69,7 +83,7 @@ func (c *Client) Connect() error {
 	} else if c.receive {
 		log.Printf("receiving a file")
 
-		err := connectToServer(secure.OperationTypeReceive, enc, dec)
+		err := c.connectToServer(secure.OperationTypeReceive, enc, dec)
 		if err != nil {
 			return fmt.Errorf("could not connect and auth: %v", err)
 		}
@@ -111,7 +125,7 @@ func (c *Client) Connect() error {
 	} else if c.send {
 		//  send mode
 
-		err := connectToServer(secure.OperationTypeSend, enc, dec)
+		err := c.connectToServer(secure.OperationTypeSend, enc, dec)
 		if err != nil {
 			return fmt.Errorf("could not connect and auth: %v", err)
 		}
@@ -167,14 +181,14 @@ func (c *Client) Connect() error {
 
 }
 
-func connectToServer(op secure.OperationTypeEnum, enc *gob.Encoder, dec *gob.Decoder) error {
+func (c *Client) connectToServer(op secure.OperationTypeEnum, enc *gob.Encoder, dec *gob.Decoder) error {
 
 	// list mode
 	startPacket := secure.PacketStartRequest{
 		OperationType:   op,
 		ClientName:      "",
 		ProtocolVersion: "1.0",
-		AuthToken:       "dummy",
+		AuthToken:       c.authToken,
 	}
 	err := enc.Encode(startPacket)
 	if err != nil {

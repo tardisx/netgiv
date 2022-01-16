@@ -20,7 +20,8 @@ import (
 )
 
 type Server struct {
-	port int
+	port      int
+	authToken string
 }
 
 // An NGF is a Netgiv File
@@ -71,11 +72,11 @@ func (s *Server) Run() {
 			fmt.Print(err)
 		}
 
-		go handleConnection(conn)
+		go s.handleConnection(conn)
 	}
 }
 
-func handleConnection(conn *net.TCPConn) {
+func (s *Server) handleConnection(conn *net.TCPConn) {
 	defer conn.Close()
 
 	conn.SetDeadline(time.Now().Add(time.Second * 5))
@@ -113,7 +114,7 @@ func handleConnection(conn *net.TCPConn) {
 		return
 	}
 
-	if start.AuthToken != "dummy2" {
+	if start.AuthToken != s.authToken {
 		log.Print("bad authtoken")
 		startResponse.Response = secure.PacketStartResponseEnumBadAuthToken
 		enc.Encode(startResponse)
