@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"net"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 
@@ -226,8 +227,9 @@ type PacketReceiveDataNext struct {
 }
 
 type PacketListData struct {
-	Id       uint32
-	Filename string
-	FileSize uint32
-	Kind     string
+	Id        uint32
+	Filename  string
+	FileSize  uint32
+	Timestamp time.Time
+	Kind      string
 }

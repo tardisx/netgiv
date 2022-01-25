@@ -59,6 +59,7 @@ func (c *Client) Connect() error {
 		}
 
 		// now we expect to get stuff back until we don't
+		numFiles := 0
 		for {
 			listPacket := secure.PacketListData{}
 			err := dec.Decode(&listPacket)
@@ -68,8 +69,10 @@ func (c *Client) Connect() error {
 			if err != nil {
 				panic(err)
 			}
-			fmt.Printf("%d: %s (%s)\n", listPacket.Id, listPacket.Kind, humanize.Bytes(uint64(listPacket.FileSize)))
+			fmt.Printf("%d: %s (%s) - %s\n", listPacket.Id, listPacket.Kind, humanize.Bytes(uint64(listPacket.FileSize)), listPacket.Timestamp)
+			numFiles++
 		}
+		fmt.Printf("total: %d files\n", numFiles)
 		conn.Close()
 		log.Debugf("done listing")
 
@@ -180,7 +183,7 @@ func (c *Client) connectToServer(op secure.OperationTypeEnum, enc *gob.Encoder, 
 	startPacket := secure.PacketStartRequest{
 		OperationType:   op,
 		ClientName:      "",
-		ProtocolVersion: "1.0",
+		ProtocolVersion: "1.1",
 		AuthToken:       c.authToken,
 	}
 	err := enc.Encode(startPacket)

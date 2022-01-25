@@ -108,7 +108,7 @@ func (s *Server) handleConnection(conn *net.TCPConn) {
 	// tell teh client the dealio
 	startResponse := secure.PacketStartResponse{}
 
-	if start.ProtocolVersion != "1.0" {
+	if start.ProtocolVersion != "1.1" {
 		log.Errorf("bad protocol version")
 		startResponse.Response = secure.PacketStartResponseEnumWrongProtocol
 		enc.Encode(startResponse)
@@ -307,6 +307,7 @@ func (s *Server) handleConnection(conn *net.TCPConn) {
 			p.Kind = ngf.Kind
 			p.Id = ngf.Id
 			p.Filename = ngf.Filename
+			p.Timestamp = ngf.Timestamp
 			enc.Encode(p)
 		}
 		log.Debugf("done sending list, closing connection")
