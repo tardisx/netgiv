@@ -128,3 +128,7 @@ be deleted when the server shuts down (SIGTERM).
 
 Windows support is marginal, at best, mostly because of the lack of POSIX style 
 pipes. Bug reports and suggestions for workarounds are welcome.
+
+# Acknowledgements
+
+* thanks to tengig for the name
