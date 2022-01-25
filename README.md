@@ -64,27 +64,42 @@ To run a server, just run:
 
 On any client, run:
 
-    echo "Hello" | netgiv
+    $ echo "Hello" | netgiv
 
 To check for success, try:
 
-    netgiv | cat 
+    $ netgiv | cat
 
 You should see "hello" echoed on your terminal.
 
 To check the list of files on the server:
 
-    netgiv -l
+    $ netgiv -l
+    1: UTF-8 text (6 B)
+    2: application/x-mach-binary (6.5 MB)
+    3: video/quicktime (14 MB)
+    4: image/png (1.5 MB)
+
+Note that netgiv tries to identify each file based on file magic heuristics.
 
 If you would like to fetch (paste) a particular file:
 
-    netgiv -p 2 > file.png
+    netgiv -p 3 > file.mov
 
 Where '2' comes from the information provided in the `-l` output. It is the
 second most recent file that was copied to the server.
 
 Note that providing no `-p` option is the same as `-p 1` which means "the most
 recent file".
+
+### Notes on output
+
+Since netgiv is designed to be used in a pipeline, it does not provide any
+output on successful execution (apart from your actual data on stdout of course!)
+
+If you'd like to see debugging information, use the `--debug` flag.
+
+Note that `netgiv` will send error logs to stderr in cases of problems.
 
 ### Alternative ways of providing the authtoken
 
