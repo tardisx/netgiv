@@ -13,7 +13,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-var CurrentVersion = "v0.0.2"
+var CurrentVersion = "v0.0.3"
 
 type PasteValue struct {
 	PasteRequired bool
