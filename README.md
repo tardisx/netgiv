@@ -8,16 +8,18 @@ your local network quickly and easily.
 It uses a familiar unix pipeline paradigm, so files can be moved between machines
 as part of a pipeline, obviating the need for dealing with temporary files.
 
-`netgiv` automatically detects "copy" (stdin is a pipe) or "paste" (stdout is a pipe) modes, allowing intuitive use like:
+`netgiv` automatically detects "copy" (stdin is a pipe) or "paste" (stdout is a
+pipe) modes, allowing intuitive use like:
 
-    host-A$ pg_dumpall | netgiv
+    hostA$ pg_dumpall | netgiv
 
-    host-B$ netgiv | psql restoredb
+    hostB$ netgiv | psql restoredb
 
 Note that since netgiv uses a persistent server, there is no need to setup both ends
 of the pipeline in advance (compared to netcat or similar tools).
 
-All data is encrypted in flight (though not in the temporary files on the server). Access to the server is granted by an authentication token (preshared key) of your
+All data is encrypted in flight (though not in the temporary files on the server)
+Access to the server is granted by an authentication token (preshared key) of your
 choice.
 
 ## Install
@@ -39,9 +41,10 @@ Clone this repository, run `go build`.
 
 ## Configuration
 
-Configuration of `netgiv` is via a YAML configuration file in $HOME/.netgiv/config.yaml.
+Configuration of `netgiv` is via a YAML configuration file in
+`$HOME/.netgiv/config.yaml`.
 
-Run `netgiv --help-config` for a sample config file.
+Run `netgiv --help-config` to see a sample config file.
 
 The server requires the 'authtoken' and 'port' configuration keys to be set.
 
@@ -49,7 +52,7 @@ The client requires the 'authtoken', 'port' and 'address' configuration keys to 
 set.
 
 * `authtoken` - this is any arbitrary string, you should choose something not easy to
-  guess or type
+  guess
 * `port` - this is the TCP port the server will listen on (and that the client will
   connect to)
 * `address` - the IP address or hostname of the `netgiv` server
@@ -89,8 +92,8 @@ If you would like to fetch (paste) a particular file:
 Where '2' comes from the information provided in the `-l` output. It is the
 second most recent file that was copied to the server.
 
-Note that providing no `-p` option is the same as `-p 1` which means "the most
-recent file".
+Note that providing no `-p` option is the same as `-p X` where X is the highest
+numbered upload (most recent).
 
 ### Notes on output
 
@@ -109,8 +112,9 @@ there are a couple of alternate options:
 
 #### ENV var
 
-The environment variable NETGIV_AUTHTOKEN can be used to provide the authtoken. A 
-common way to leverage this is to send it when you ssh to a remote host via the SendEnv option of ssh.
+The environment variable NETGIV_AUTHTOKEN can be used to provide the authtoken. A
+common way to leverage this is to send it when you ssh to a remote host via the
+`SendEnv` option (see your ssh_config man page).
 
 #### Interactive
 
