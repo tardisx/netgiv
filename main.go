@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/term"
 
 	"github.com/mattn/go-isatty"
 	flag "github.com/spf13/pflag"
@@ -40,6 +41,32 @@ func (v *PasteValue) Set(s string) error {
 func (v *PasteValue) Type() string {
 	return "int"
 
+}
+
+func getAuthTokenFromTerminal() string {
+	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0755)
+
+	if err != nil {
+		log.Printf("cannot open /dev/tty to read authtoken: %v", err)
+		return ""
+	}
+	fd := int(tty.Fd())
+
+	oldState, err := term.MakeRaw(fd)
+	if err != nil {
+		log.Printf("cannot set /dev/tty to raw mode: %v", err)
+		return ""
+	}
+	defer term.Restore(fd, oldState)
+
+	t := term.NewTerminal(tty, "")
+	pass, err := t.ReadPassword("Enter auth token: ")
+	if err != nil {
+		log.Printf("cannot read password from /dev/tty: %v", err)
+		return ""
+	}
+
+	return pass
 }
 
 func main() {
@@ -125,6 +152,12 @@ environment variable. This may be preferable in some environments.
 
 	if *debug {
 		log.SetLevel(log.DebugLevel)
+	}
+
+	// if still no authtoken and in client mode, try from the terminal, last
+	// ditch effort
+	if !*isServer && authtoken == "" {
+		authtoken = getAuthTokenFromTerminal()
 	}
 
 	if authtoken == "" {
