@@ -122,14 +122,15 @@ common way to leverage this is to send it when you ssh to a remote host via the
 #### Interactive
 
 If the authtoken has not been set by any of the above methods, it will be prompted
-for interactively (it will not be echoed to the screen).
+for interactively (it will not be echoed to the screen). Note that this only applies
+to the client - the server must have a config file with an authtoken specified.
 
 # Other notes
 
 ## Temporary file storage
 
 The `netgiv` server will store files in your normal system temporary dir. They will 
-be deleted when the server shuts down (SIGTERM).
+be deleted when the server shuts down (SIGTERM). These files are *not* encrypted.
 
 ## Window support
 
