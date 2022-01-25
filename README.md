@@ -93,8 +93,7 @@ If you would like to fetch (paste) a particular file:
 
     netgiv -p 3 > file.mov
 
-Where '2' comes from the information provided in the `-l` output. It is the
-second most recent file that was copied to the server.
+Where '3' comes from the information provided in the `-l` output.
 
 Note that providing no `-p` option is the same as `-p X` where X is the highest
 numbered upload (most recent).
