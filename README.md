@@ -15,7 +15,7 @@ as part of a pipeline, obviating the need for dealing with temporary files.
     host-B$ netgiv | psql restoredb
 
 Note that since netgiv uses a persistent server, there is no need to setup both ends
-of the pipeline in advance.
+of the pipeline in advance (compared to netcat or similar tools).
 
 All data is encrypted in flight (though not in the temporary files on the server). Access to the server is granted by an authentication token (preshared key) of your
 choice.
@@ -75,6 +75,16 @@ You should see "hello" echoed on your terminal.
 To check the list of files on the server:
 
     netgiv -l
+
+If you would like to fetch (paste) a particular file:
+
+    netgiv -p 2 > file.png
+
+Where '2' comes from the information provided in the `-l` output. It is the
+second most recent file that was copied to the server.
+
+Note that providing no `-p` option is the same as `-p 1` which means "the most
+recent file".
 
 ### Alternative ways of providing the authtoken
 
