@@ -2,22 +2,13 @@ package secure
 
 import (
 	"bytes"
+	"encoding/gob"
 	"net"
 	"testing"
 	"time"
 )
 
-func TestPacketBasic(t *testing.T) {
-	// pSrc := PacketStart{
-	// 	OperationType:   0,
-	// 	ClientName:      "test1",
-	// 	ProtocolVersion: "test2",
-	// 	AuthToken:       "test3",
-	// }
-	// pDst := PacketStart{}
-
-	// buf := bytes.Buffer{}
-
+func TestBasic(t *testing.T) {
 	srcConn, dstConn := net.Pipe()
 
 	srcSecConn := SecureConnection{
@@ -70,6 +61,61 @@ func TestPacketBasic(t *testing.T) {
 		if !bytes.Equal(out[:n], b) {
 			t.Errorf("%v not equal to %v", out[:n], b)
 		}
+	}
+}
+
+func TestPacketBasic(t *testing.T) {
+	// test encoding/decoding of packets over the encrypted wire
+	srcConn, dstConn := net.Pipe()
+
+	srcSecConn := SecureConnection{
+		Conn: srcConn,
+		SharedKey: &[32]byte{0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7,
+			0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7,
+			0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7,
+			0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7,
+		},
+		Buffer: &bytes.Buffer{},
+	}
+
+	dstSecConn := SecureConnection{
+		Conn: dstConn,
+		SharedKey: &[32]byte{0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7,
+			0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7,
+			0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7,
+			0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7,
+		},
+		Buffer: &bytes.Buffer{},
+	}
+
+	enc := gob.NewEncoder(&srcSecConn)
+	dec := gob.NewDecoder(&dstSecConn)
+
+	packet := PacketStartRequest{
+		OperationType:   OperationTypeReceive,
+		ClientName:      "foo",
+		ProtocolVersion: "1.1",
+		AuthToken:       "abc123",
+	}
+	go func() { enc.Encode(packet) }()
+
+	recvPacket := PacketStartRequest{}
+	dec.Decode(&recvPacket)
+
+	if recvPacket.OperationType != OperationTypeReceive {
+		t.Error("bad OperationType")
+	}
+	if recvPacket.ClientName != "foo" {
+		t.Error("bad ClientName")
+	}
+	if recvPacket.ClientName != "foo" {
+		t.Error("bad ClientName")
+	}
+	if recvPacket.AuthToken != "abc123" {
+		t.Error("bad AuthToken")
+	}
+	if recvPacket.ProtocolVersion != "1.1" {
+		t.Error("bad ProtocolVersion")
 	}
 
 }
