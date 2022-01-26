@@ -183,7 +183,7 @@ func (c *Client) connectToServer(op secure.OperationTypeEnum, enc *gob.Encoder, 
 	startPacket := secure.PacketStartRequest{
 		OperationType:   op,
 		ClientName:      "",
-		ProtocolVersion: "1.1",
+		ProtocolVersion: ProtocolVersion,
 		AuthToken:       c.authToken,
 	}
 	err := enc.Encode(startPacket)

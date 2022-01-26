@@ -105,10 +105,10 @@ func (s *Server) handleConnection(conn *net.TCPConn) {
 		return
 	}
 
-	// tell teh client the dealio
+	// tell the client if the connection is ok.
 	startResponse := secure.PacketStartResponse{}
 
-	if start.ProtocolVersion != "1.1" {
+	if start.ProtocolVersion != ProtocolVersion {
 		log.Errorf("bad protocol version")
 		startResponse.Response = secure.PacketStartResponseEnumWrongProtocol
 		enc.Encode(startResponse)

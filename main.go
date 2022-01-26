@@ -15,6 +15,8 @@ import (
 
 var CurrentVersion = "v0.0.3"
 
+const ProtocolVersion = "1.1"
+
 type PasteValue struct {
 	PasteRequired bool
 	PasteNumber   uint
