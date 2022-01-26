@@ -31,7 +31,7 @@ and place the binary somewhere on your $PATH.
 
 Copy and paste for the trusting & lazy:
 
-    curl -L https://github.com/tardisx/netgiv/releases/download/v0.0.3/netgiv-linux-v0.0.3.zip | funzip > netgiv && chmod a+x netgiv
+    curl -L https://github.com/tardisx/netgiv/releases/download/v0.0.4/netgiv-linux-v0.0.4.zip | funzip > netgiv && chmod a+x netgiv
 
 ### Compiling from source
 
