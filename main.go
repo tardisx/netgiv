@@ -13,7 +13,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-var CurrentVersion = "v0.0.3"
+var CurrentVersion = "v0.0.4"
 
 const ProtocolVersion = "1.1"
 
