@@ -63,7 +63,7 @@ func (s *Server) Run() {
 			log.Printf("removing file: %s", ngf.StorePath)
 			err := os.Remove(ngf.StorePath)
 			if err != nil {
-				log.Printf("could not remove %s: %v", ngf.StorePath, err)
+				log.Errorf("could not remove %s: %v", ngf.StorePath, err)
 			}
 		}
 		os.Exit(0)
@@ -73,7 +73,6 @@ func (s *Server) Run() {
 
 	for {
 		conn, err := listener.AcceptTCP()
-
 		if err != nil {
 			fmt.Print(err)
 		}
@@ -85,7 +84,7 @@ func (s *Server) Run() {
 func (s *Server) handleConnection(conn *net.TCPConn) {
 	defer conn.Close()
 
-	conn.SetDeadline(time.Now().Add(time.Second * 5))
+	_ = conn.SetDeadline(time.Now().Add(time.Second * 5))
 
 	sharedKey := secure.Handshake(conn)
 	secureConnection := secure.SecureConnection{Conn: conn, SharedKey: sharedKey, Buffer: &bytes.Buffer{}}
@@ -116,24 +115,25 @@ func (s *Server) handleConnection(conn *net.TCPConn) {
 	if start.ProtocolVersion != ProtocolVersion {
 		log.Errorf("bad protocol version")
 		startResponse.Response = secure.PacketStartResponseEnumWrongProtocol
-		enc.Encode(startResponse)
+		_ = enc.Encode(startResponse)
 		return
 	}
 
 	if start.AuthToken != s.authToken {
 		log.Errorf("bad authtoken")
 		startResponse.Response = secure.PacketStartResponseEnumBadAuthToken
-		enc.Encode(startResponse)
+		_ = enc.Encode(startResponse)
 		return
 	}
 
 	// otherwise we are good to continue, tell the client that
 	startResponse.Response = secure.PacketStartResponseEnumOK
-	enc.Encode(startResponse)
+	_ = enc.Encode(startResponse)
 
-	conn.SetDeadline(time.Now().Add(time.Second * 5))
+	_ = conn.SetDeadline(time.Now().Add(time.Second * 5))
 
-	if start.OperationType == secure.OperationTypeSend {
+	switch start.OperationType {
+	case secure.OperationTypeSend:
 		log.Debugf("file incoming")
 
 		sendStart := secure.PacketSendDataStart{}
@@ -165,7 +165,7 @@ func (s *Server) handleConnection(conn *net.TCPConn) {
 		sendData := secure.PacketSendDataNext{}
 		determinedKind := false
 		for {
-			conn.SetDeadline(time.Now().Add(time.Second * 5))
+			_ = conn.SetDeadline(time.Now().Add(time.Second * 5))
 			err = dec.Decode(&sendData)
 			if err == io.EOF {
 				break
@@ -195,7 +195,7 @@ func (s *Server) handleConnection(conn *net.TCPConn) {
 				determinedKind = true
 			}
 
-			file.Write(sendData.Data)
+			_, _ = file.Write(sendData.Data)
 		}
 		info, err := file.Stat()
 		if err != nil {
@@ -209,13 +209,13 @@ func (s *Server) handleConnection(conn *net.TCPConn) {
 		log.Printf("done receiving file: %v", ngf)
 
 		return
-	} else if start.OperationType == secure.OperationTypeReceive {
+	case secure.OperationTypeReceive:
 		log.Printf("client requesting file receive")
 		// wait for them to send the request
 		req := secure.PacketReceiveDataStartRequest{}
 		err := dec.Decode(&req)
 		if err != nil {
-			log.Printf("error expecting PacketReceiveDataStartRequest: %v", err)
+			log.Errorf("error expecting PacketReceiveDataStartRequest: %v", err)
 			return
 		}
 
@@ -247,7 +247,7 @@ func (s *Server) handleConnection(conn *net.TCPConn) {
 			}
 			err = enc.Encode(res)
 			if err != nil {
-				log.Printf("could not send NotFound: %v", err)
+				log.Errorf("could not send NotFound: %v", err)
 			}
 
 			return
@@ -302,8 +302,7 @@ func (s *Server) handleConnection(conn *net.TCPConn) {
 		}
 		log.Printf("sending done")
 		return
-
-	} else if start.OperationType == secure.OperationTypeList {
+	case secure.OperationTypeList:
 		log.Debugf("client requesting file list")
 
 		for _, ngf := range ngfs {
@@ -313,15 +312,83 @@ func (s *Server) handleConnection(conn *net.TCPConn) {
 			p.Id = ngf.Id
 			p.Filename = ngf.Filename
 			p.Timestamp = ngf.Timestamp
-			enc.Encode(p)
+			_ = enc.Encode(p)
 		}
 		log.Debugf("done sending list, closing connection")
 
 		return
+	case secure.OperationTypeBurn:
+		log.Debugf("client requesting burn")
+		// wait for them to send the request
+		req := secure.PacketBurnRequest{}
+		err := dec.Decode(&req)
+		if err != nil {
+			log.Errorf("error expecting PacketBurnRequest: %v", err)
+			return
+		}
 
-	} else {
+		log.Debugf("The client asked for %v to be burned", req)
+
+		// do we have this ngf by id?
+		var requestedNGF NGF
+
+		if len(ngfs) > 0 {
+			if req.Id == 0 {
+				// they want the most recent one
+				requestedNGF = ngfs[len(ngfs)-1]
+			} else {
+				for _, ngf := range ngfs {
+					if ngf.Id == req.Id {
+						requestedNGF = ngf
+					}
+				}
+			}
+		}
+
+		log.Debugf("going to burn %v", requestedNGF)
+
+		if requestedNGF.Id == 0 {
+			// not found
+			log.Errorf("user requested burning %d, not found", req.Id)
+			res := secure.PacketBurnResponse{
+				Status: secure.BurnResponseNotFound,
+			}
+			err = enc.Encode(res)
+			if err != nil {
+				log.Errorf("could not send NotFound: %v", err)
+			}
+
+			return
+		}
+
+		// remove the file
+		err = os.Remove(requestedNGF.StorePath)
+		if err != nil {
+			log.Errorf("could not remove file %s: %v", requestedNGF.StorePath, err)
+			return
+		}
+
+		// remove the ngf from the list
+		for i, ngf := range ngfs {
+			if ngf.Id == requestedNGF.Id {
+				ngfs = append(ngfs[:i], ngfs[i+1:]...)
+				break
+			}
+		}
+
+		res := secure.PacketBurnResponse{
+			Status: secure.BurnResponseOK,
+		}
+		err = enc.Encode(res)
+		if err != nil {
+			log.Errorf("error sending PacketBurnResponse: %v", err)
+			return
+		}
+
+		log.Printf("burn complete")
+		return
+	default:
 		log.Errorf("bad operation")
 		return
 	}
-
 }

@@ -129,7 +129,7 @@ func (s *SecureConnection) Write(p []byte) (int, error) {
 	var nonce [24]byte
 
 	// Create a new nonce for each message sent
-	rand.Read(nonce[:])
+	_, _ = rand.Read(nonce[:])
 
 	encryptedMessage := box.SealAfterPrecomputation(nil, p, &nonce, s.SharedKey)
 	sm := SecureMessage{Msg: encryptedMessage, Nonce: nonce}
@@ -145,10 +145,10 @@ func Handshake(conn *net.TCPConn) *[32]byte {
 
 	publicKey, privateKey, _ := box.GenerateKey(rand.Reader)
 
-	conn.Write(publicKey[:])
+	_, _ = conn.Write(publicKey[:])
 
 	peerKeyArray := make([]byte, 32)
-	conn.Read(peerKeyArray)
+	_, _ = conn.Read(peerKeyArray)
 	copy(peerKey[:], peerKeyArray)
 
 	box.Precompute(&sharedKey, &peerKey, privateKey)
@@ -162,10 +162,11 @@ const (
 	OperationTypeSend OperationTypeEnum = iota
 	OperationTypeList
 	OperationTypeReceive
+	OperationTypeBurn
 )
 
 // PacketStartRequest is sent from the client to the server at the beginning
-// to authenticate and annonce the requested particular operation
+// to authenticate and announce the requested particular operation
 type PacketStartRequest struct {
 	OperationType   OperationTypeEnum
 	ClientName      string
@@ -233,3 +234,20 @@ type PacketListData struct {
 	Timestamp time.Time
 	Kind      string
 }
+
+type PacketBurnRequest struct {
+	Id uint32
+}
+
+type PacketBurnResponse struct {
+	Status PacketBurnResponseEnum
+}
+
+type PacketBurnResponseEnum byte
+
+const (
+	// File has been deleted
+	BurnResponseOK PacketBurnResponseEnum = iota
+	// No such file by index
+	BurnResponseNotFound
+)
