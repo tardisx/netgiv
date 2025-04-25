@@ -18,6 +18,9 @@ pipe) modes, allowing intuitive use like:
 Note that since netgiv uses a persistent server, there is no need to setup both ends
 of the pipeline in advance (compared to netcat or similar tools).
 
+This also means that you could "copy" once and "paste" multiple times, on
+multiple different machines.
+
 All data is encrypted in flight (though not in the temporary files on the server)
 Access to the server is granted by an authentication token (preshared key) of your
 choice.
@@ -161,3 +164,4 @@ pipes. Bug reports and suggestions for workarounds are welcome.
 # Acknowledgements
 
 * thanks to tengig for the name
+* thanks to [@jsnfwlr](https://github.com/jsnfwlr) for the burn feature
