@@ -100,9 +100,7 @@ func main() {
 	flag.Parse()
 
 	if versionFlag != nil && *versionFlag {
-		fmt.Printf("netgiv %s, built at %s\n", version, date)
-		fmt.Printf("commit: %s\n", commit)
-		fmt.Print("http://github.com/tardisx/netgiv\n")
+		fmt.Print(versionInfo(true))
 		os.Exit(0)
 	}
 
@@ -211,4 +209,14 @@ environment variable. This may be preferable in some environments.
 			fmt.Print(err)
 		}
 	}
+}
+
+func versionInfo(verbose bool) string {
+	out := ""
+	out += fmt.Sprintf("netgiv %s, built at %s\n", version, date)
+	if verbose {
+		out += fmt.Sprintf("commit: %s\n", commit)
+		out += fmt.Sprintf("http://github.com/tardisx/netgiv\n")
+	}
+	return out
 }
