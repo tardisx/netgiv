@@ -71,6 +71,12 @@ func getAuthTokenFromTerminal() string {
 	return pass
 }
 
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+)
+
 func main() {
 	isServer := flag.Bool("server", false, "Run netgiv in server mode")
 
@@ -91,7 +97,16 @@ func main() {
 	flag.String("authtoken", "", "Authentication token")
 	flag.Int("port", 0, "Port")
 
+	versionFlag := flag.BoolP("version", "v", false, "show version and exit")
+
 	flag.Parse()
+
+	if versionFlag != nil && *versionFlag {
+		fmt.Printf("netgiv %s, built at %s\n", version, date)
+		fmt.Printf("commit: %s\n", commit)
+		fmt.Print("http://github.com/tardisx/netgiv\n")
+		os.Exit(0)
+	}
 
 	receiveNum := int(pasteFlag.PasteNumber)
 	if !pasteFlag.PasteRequired {
@@ -112,7 +127,6 @@ func main() {
 		}
 	}
 
-	flag.Parse()
 	viper.BindPFlags(flag.CommandLine)
 
 	viper.SetEnvPrefix("NETGIV")
