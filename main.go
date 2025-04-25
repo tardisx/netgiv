@@ -15,37 +15,35 @@ import (
 
 const ProtocolVersion = "1.1"
 
-type PasteValue struct {
-	PasteRequired bool
-	PasteNumber   uint
+type ListValue struct {
+	Required bool
+	Number   uint
 }
 
-func (v *PasteValue) String() string {
-	if v.PasteRequired {
-		return fmt.Sprintf("YES: %d", v.PasteNumber)
+func (v *ListValue) String() string {
+	if v.Required {
+		return fmt.Sprintf("YES: %d", v.Number)
 	}
 	return "0"
 }
 
-func (v *PasteValue) Set(s string) error {
-	v.PasteRequired = true
+func (v *ListValue) Set(s string) error {
+	v.Required = true
 	num, err := strconv.ParseUint(s, 10, 64)
 	if err != nil {
 		return err
 	}
 
-	v.PasteNumber = uint(num)
+	v.Number = uint(num)
 	return nil
 }
 
-func (v *PasteValue) Type() string {
+func (v *ListValue) Type() string {
 	return "int"
-
 }
 
 func getAuthTokenFromTerminal() string {
-	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0755)
-
+	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0o755)
 	if err != nil {
 		log.Printf("cannot open /dev/tty to read authtoken: %v", err)
 		return ""
@@ -57,7 +55,9 @@ func getAuthTokenFromTerminal() string {
 		log.Printf("cannot set /dev/tty to raw mode: %v", err)
 		return ""
 	}
-	defer term.Restore(fd, oldState)
+	defer func() {
+		_ = term.Restore(fd, oldState)
+	}()
 
 	t := term.NewTerminal(tty, "")
 	pass, err := t.ReadPassword("Enter auth token: ")
@@ -80,11 +80,15 @@ func main() {
 
 	// client mode flags
 	isList := flag.BoolP("list", "l", false, "Returns a list of current items on the server")
-	isSend := flag.BoolP("copy", "c", false, "sending stdin to netgiv server (copy)")
+	isSend := flag.BoolP("copy", "c", false, "send stdin to netgiv server (copy)")
 
-	pasteFlag := PasteValue{}
-	flag.VarP(&pasteFlag, "paste", "p", "receive from netgiv server to stdout (paste), with optional number (see --list)")
+	pasteFlag := ListValue{}
+	flag.VarP(&pasteFlag, "paste", "p", "receive from netgiv server to stdout (paste), with optional id (see --list)")
 	flag.Lookup("paste").NoOptDefVal = "0"
+
+	burnFlag := ListValue{}
+	flag.VarP(&burnFlag, "burn", "b", "burn (remove/delete) the item on the netgiv server, with optional id (see --list)")
+	flag.Lookup("burn").NoOptDefVal = "0"
 
 	debug := flag.Bool("debug", false, "turn on debug logging")
 	flag.String("address", "", "IP address/hostname of the netgiv server")
@@ -104,12 +108,18 @@ func main() {
 		os.Exit(0)
 	}
 
-	receiveNum := int(pasteFlag.PasteNumber)
-	if !pasteFlag.PasteRequired {
+	receiveNum := int(pasteFlag.Number)
+	if !pasteFlag.Required {
 		receiveNum = -1
 	}
 
-	viper.AddConfigPath("$HOME/.netgiv/") // call multiple times to add many search paths
+	burnNum := int(burnFlag.Number)
+	if !burnFlag.Required {
+		burnNum = -1
+	}
+
+	viper.AddConfigPath("$HOME/.netgiv/")
+	viper.AddConfigPath("$HOME/.config/netgiv/") // calling multiple times adds to search paths
 	viper.SetConfigType("yaml")
 
 	viper.SetDefault("port", 4512)
@@ -123,10 +133,10 @@ func main() {
 		}
 	}
 
-	viper.BindPFlags(flag.CommandLine)
+	_ = viper.BindPFlags(flag.CommandLine)
 
 	viper.SetEnvPrefix("NETGIV")
-	viper.BindEnv("authtoken")
+	_ = viper.BindEnv("authtoken")
 
 	// pull the various things into local variables
 	port := viper.GetInt("port") // retrieve value from viper
@@ -180,11 +190,12 @@ environment variable. This may be preferable in some environments.
 		log.Fatal("an address must be provided on the command line, or configuration")
 	}
 
+	log.Debugf("protocol version: %s", ProtocolVersion)
 	if *isServer {
 		s := Server{port: port, authToken: authtoken}
 		s.Run()
 	} else {
-		if !*isList && !*isSend && receiveNum == -1 {
+		if !*isList && !*isSend && burnNum == -1 && receiveNum == -1 {
 			// try to work out the intent based on whether or not stdin/stdout
 			// are ttys
 			stdinTTY := isatty.IsTerminal(os.Stdin.Fd())
@@ -203,7 +214,7 @@ environment variable. This may be preferable in some environments.
 
 		}
 
-		c := Client{port: port, address: address, list: *isList, send: *isSend, receiveNum: receiveNum, authToken: authtoken}
+		c := Client{port: port, address: address, list: *isList, send: *isSend, burnNum: burnNum, receiveNum: receiveNum, authToken: authtoken}
 		err := c.Connect()
 		if err != nil {
 			fmt.Print(err)

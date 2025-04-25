@@ -22,6 +22,7 @@ type Client struct {
 	port       int
 	list       bool
 	send       bool
+	burnNum    int
 	receiveNum int
 	authToken  string
 }
@@ -50,7 +51,8 @@ func (c *Client) Connect() error {
 	enc := gob.NewEncoder(&secureConnection)
 	dec := gob.NewDecoder(&secureConnection)
 
-	if c.list {
+	switch {
+	case c.list:
 		log.Debugf("requesting file list")
 
 		err := c.connectToServer(secure.OperationTypeList, enc, dec)
@@ -75,8 +77,7 @@ func (c *Client) Connect() error {
 		fmt.Printf("total: %d files\n", numFiles)
 		conn.Close()
 		log.Debugf("done listing")
-
-	} else if c.receiveNum >= 0 {
+	case c.receiveNum >= 0:
 		log.Debugf("receiving file %d", c.receiveNum)
 
 		err := c.connectToServer(secure.OperationTypeReceive, enc, dec)
@@ -98,7 +99,8 @@ func (c *Client) Connect() error {
 			panic(err)
 		}
 
-		if res.Status == secure.ReceiveDataStartResponseOK {
+		switch res.Status {
+		case secure.ReceiveDataStartResponseOK:
 			for {
 				res := secure.PacketReceiveDataNext{}
 				err = dec.Decode(&res)
@@ -111,14 +113,14 @@ func (c *Client) Connect() error {
 				}
 			}
 			log.Debugf("finished")
-		} else if res.Status == secure.ReceiveDataStartResponseNotFound {
+		case secure.ReceiveDataStartResponseNotFound:
 			log.Error("ngf not found")
-		} else {
+		default:
 			panic("unknown status")
 		}
 
 		conn.Close()
-	} else if c.send {
+	case c.send:
 		//  send mode
 
 		err := c.connectToServer(secure.OperationTypeSend, enc, dec)
@@ -169,16 +171,45 @@ func (c *Client) Connect() error {
 		log.Debugf("Sent %s in %d chunks", humanize.Bytes(uint64(nBytes)), nChunks)
 
 		conn.Close()
+	case c.burnNum >= 0:
+		log.Debugf("burning file %d", c.burnNum)
 
-	} else {
+		err := c.connectToServer(secure.OperationTypeBurn, enc, dec)
+		if err != nil {
+			return fmt.Errorf("could not connect and auth: %v", err)
+		}
+
+		req := secure.PacketBurnRequest{
+			Id: uint32(c.burnNum),
+		}
+		err = enc.Encode(req)
+		if err != nil {
+			panic(err)
+		}
+		// expect a response telling us if we can go ahead
+		res := secure.PacketBurnResponse{}
+		err = dec.Decode(&res)
+		if err != nil {
+			panic(err)
+		}
+
+		switch res.Status {
+		case secure.BurnResponseOK:
+			log.Debugf("finished")
+		case secure.BurnResponseNotFound:
+			log.Error("ngf not found")
+		default:
+			panic("unknown status")
+		}
+
+		conn.Close()
+	default:
 		panic("no client mode set")
 	}
 	return nil
-
 }
 
 func (c *Client) connectToServer(op secure.OperationTypeEnum, enc *gob.Encoder, dec *gob.Decoder) error {
-
 	// list mode
 	startPacket := secure.PacketStartRequest{
 		OperationType:   op,

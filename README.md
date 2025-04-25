@@ -63,11 +63,18 @@ set.
 
 ## Running
 
+
+### Server
+
 To run a server, just run:
 
     netgiv --server
 
 `netgiv` will run in the foreground and log accesses to it.
+
+### Client
+
+#### Copy
 
 On any client, run:
 
@@ -79,6 +86,8 @@ To check for success, try:
 
 You should see "hello" echoed on your terminal.
 
+#### List
+
 To check the list of files on the server:
 
     $ netgiv -l
@@ -89,6 +98,8 @@ To check the list of files on the server:
 
 Note that netgiv tries to identify each file based on file magic heuristics.
 
+#### Paste
+
 If you would like to fetch (paste) a particular file:
 
     netgiv -p 3 > file.mov
@@ -97,6 +108,14 @@ Where '3' comes from the information provided in the `-l` output.
 
 Note that providing no `-p` option is the same as `-p X` where X is the highest
 numbered upload (most recent).
+
+#### Burn
+
+If you would like to remove/delete (burn) a particular file:
+
+    netgiv -b 3
+
+Where '3' comes from the information provided in the `-l` output.
 
 ### Notes on output
 
@@ -129,8 +148,10 @@ to the client - the server must have a config file with an authtoken specified.
 
 ## Temporary file storage
 
-The `netgiv` server will store files in your normal system temporary dir. They will 
-be deleted when the server shuts down (SIGTERM). These files are *not* encrypted.
+The `netgiv` server will store files in your normal system temporary dir. These files 
+are *not* encrypted. They will be deleted when the server shuts down (SIGTERM). If you
+want or need to remove the files before the server shuts down, you can use the 
+[burn](#burn) flag.
 
 ## Window support
 
