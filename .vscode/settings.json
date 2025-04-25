@@ -5,6 +5,7 @@
         "Infof",
         "isatty",
         "netgiv",
+        "ngfs",
         "pflag"
     ]
 }
