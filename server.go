@@ -34,6 +34,10 @@ type NGF struct {
 	Timestamp time.Time
 }
 
+func (ngf NGF) String() string {
+	return fmt.Sprintf("id: %d, stored: %s, size: %d, kind: %s", ngf.Id, ngf.StorePath, ngf.Size, ngf.Kind)
+}
+
 var ngfs []NGF
 var globalId uint32
 
