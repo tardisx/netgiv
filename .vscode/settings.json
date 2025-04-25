@@ -6,6 +6,15 @@
         "isatty",
         "netgiv",
         "ngfs",
-        "pflag"
+        "tardisx",
+        "ttys"
+    ],
+    "cSpell.ignoreWords": [
+        "logrus",
+        "mattn",
+        "pflag",
+        "sigchan",
+        "sirupsen",
+        "verysecretvaluehere"
     ]
 }
