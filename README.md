@@ -32,10 +32,6 @@ choice.
 Grab the appropriate version from https://github.com/tardisx/netgiv/releases, unzip
 and place the binary somewhere on your $PATH.
 
-Copy and paste for the trusting & lazy:
-
-    curl -L https://github.com/tardisx/netgiv/releases/download/v0.0.4/netgiv-linux-v0.0.4.zip | funzip > netgiv && chmod a+x netgiv
-
 ### Compiling from source
 
     go install github.com/tardisx/netgiv@latest
