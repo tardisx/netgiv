@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-* burn mode - removed copied files from the server
+* burn mode - remove copied files from the server (by [@jsnfwlr](https://github.com/jsnfwlr))
 
 ## v0.0.5 - 2025-04-26
 
